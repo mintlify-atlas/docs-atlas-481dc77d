@@ -1,7 +1,7 @@
 ---
-title: "CornerGrocerApp Class Reference"
+title: "CornerGrocerApp Class — SQLite-Backed Grocery App Reference"
 sidebarTitle: "CornerGrocerApp"
-description: "Reference for the CornerGrocerApp class in corner_grocer_main.py: the high-level wrapper that combines SQLite persistence with all grocery frequency operations."
+description: "Reference for the CornerGrocerApp class in corner_grocer_main.py: a high-level wrapper combining SQLite persistence with grocery frequency operations."
 ---
 
 `CornerGrocerApp` is the high-level application class in `corner_grocer_main.py`. It wraps the individual `db_handler` functions into a clean, object-oriented interface, handling database initialization automatically in the constructor and exposing methods that map directly to the interactive menu operations. Unlike `GroceryFrequency`, which stores frequencies in memory, `CornerGrocerApp` persists all data to a SQLite database file so that counts survive between program runs.
@@ -72,7 +72,7 @@ app = CornerGrocerApp()
 ### `add_item`
 
 ```python
-def add_item(self, item: str) -> None
+def add_item(self, item)
 ```
 
 Validates that `item` is a non-empty string after stripping whitespace, then normalizes it to lowercase and delegates to `insert_or_update_item`. If `item` is empty or whitespace-only after stripping, the call is silently ignored.
@@ -95,7 +95,7 @@ app.add_item('')           # silently ignored
 ### `process_input_text`
 
 ```python
-def process_input_text(self, input_text: str) -> None
+def process_input_text(self, input_text)
 ```
 
 Splits `input_text` on newline characters (`'\n'`), strips each resulting token, and calls `add_item` for every non-empty token. Returns immediately if `input_text` is falsy (empty string or `None`). This is the primary bulk-import method for loading multiple items at once from a string buffer (e.g., the content of a file read into memory).
@@ -120,7 +120,7 @@ app.process_input_text(content)
 ### `get_item_frequency`
 
 ```python
-def get_item_frequency(self, item: str) -> int
+def get_item_frequency(self, item)
 ```
 
 Normalizes `item` to lowercase and delegates to `get_frequency_for_item(self.conn, item.lower())`, returning the stored count or `0` if the item is not present.
@@ -145,7 +145,7 @@ print(app.get_item_frequency('durian'))  # 0
 ### `get_all_frequencies`
 
 ```python
-def get_all_frequencies(self) -> dict
+def get_all_frequencies(self)
 ```
 
 Delegates to `get_all_frequencies(self.conn)` from `db_handler` and returns the result directly. The returned dictionary is ordered alphabetically by item name (A–Z) as determined by the underlying SQL `ORDER BY item_name ASC` clause.
@@ -168,7 +168,7 @@ print(freq)
 ### `get_frequencies_sorted_by_count`
 
 ```python
-def get_frequencies_sorted_by_count(self) -> dict
+def get_frequencies_sorted_by_count(self)
 ```
 
 Delegates to `get_frequencies_sorted_by_count(self.conn)` from `db_handler` and returns the result directly. The dictionary is ordered by frequency descending, with alphabetical order used to break ties.
@@ -191,7 +191,7 @@ print(sorted_freq)
 ### `close`
 
 ```python
-def close(self) -> None
+def close(self)
 ```
 
 Closes the active SQLite connection stored in `self.conn`. Checks that `self.conn` is not `None` before calling `conn.close()` to avoid errors if the connection was never successfully opened. Should be called when the application is done with the database, typically at the end of the program's main block.

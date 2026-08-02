@@ -1,7 +1,7 @@
 ---
 title: "Corner Grocer: Python Grocery Frequency Tracker"
 sidebarTitle: "Introduction"
-description: "Corner Grocer counts grocery item purchase frequencies from text files or SQLite, with sorting, search, histogram output, and a browser demo — all in pure Python."
+description: "Corner Grocer counts grocery item purchase frequencies from text files or SQLite, with sorting, search, and histogram output — all in pure Python."
 ---
 
 Corner Grocer is a pure-Python command-line application that reads a grocery purchase log — one item name per line — and builds a frequency map showing how many times each item was bought. It was built for small retailers, data students, and hobbyists who want a fast, dependency-free way to answer questions like "which items sell most often?" without standing up a full analytics stack. Because it ships as four plain `.py` files and relies entirely on Python's standard library, it runs anywhere Python 3 is installed.
@@ -28,7 +28,7 @@ Corner Grocer is a pure-Python command-line application that reads a grocery pur
     Rank items from most-purchased to least with `grocery_utils.sort_by_freq()`. Ties are broken alphabetically in the database-backed version.
   </Card>
   <Card title="Item Search" icon="list-check">
-    Fuzzy-style search via `grocery_utils.search_item()` — normalizes the query to lowercase before checking the frequency map and prints a clear "Item not found." message when there is no match.
+    Exact-match search via `grocery_utils.search_item()` — normalizes the query to lowercase before checking the frequency map and prints a clear "Item not found." message when there is no match.
   </Card>
   <Card title="SQLite Persistence" icon="database">
     `db_handler.py` creates `grocery.db` automatically on first run. The `grocery_frequency` table uses an `INSERT OR UPDATE` pattern so repeated runs accumulate counts rather than overwriting them.

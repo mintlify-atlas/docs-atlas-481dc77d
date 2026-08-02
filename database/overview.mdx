@@ -1,7 +1,7 @@
 ---
-title: "SQLite Database Integration in Corner Grocer"
+title: "Corner Grocer SQLite Database Integration Overview"
 sidebarTitle: "Overview"
-description: "Corner Grocer uses SQLite for persistent grocery frequency storage across sessions — no server required. Learn the schema, data flow, and design decisions."
+description: "Corner Grocer uses SQLite to persist grocery frequency data across sessions with no server required. Learn the schema, data flow, and design decisions."
 ---
 
 Enhancement Three replaced Corner Grocer's original in-memory frequency tracking with a SQLite backend. Instead of building a dictionary that vanishes when the program exits, every item and its purchase count is now written to a `.db` file on disk. The next time you launch the application the data is already there — no import step required, no server to start, no configuration to manage.

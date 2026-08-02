@@ -1,10 +1,14 @@
 ---
-title: "db_handler.py — SQLite Operations Module"
+title: "db_handler.py — SQLite Database Operations in Practice"
 sidebarTitle: "db_handler"
 description: "Complete reference for db_handler.py: all functions for connecting to SQLite, creating tables, inserting and querying grocery frequency data."
 ---
 
-`db_handler.py` is the database access layer for Corner Grocer. It exposes seven functions covering connection management, table setup, item upserts, and data retrieval. Each function handles its own `sqlite3.Error` exceptions and returns a safe fallback value on failure, so the rest of the application never has to catch raw database exceptions. Import the functions selectively in your own scripts or use the full `CornerGrocerApp` wrapper defined in `corner_grocer_main.py`.
+`db_handler.py` is the database access layer for Corner Grocer. It isolates every SQL statement and connection detail behind seven named functions so the rest of the application never constructs a query string or handles a raw cursor. This page explains when and why each function is called during a normal application run — for the full parameter-by-parameter API reference, see the [db_handler reference](/reference/db-handler).
+
+## How the module fits into the app
+
+The application follows a clear division of responsibility: `db_handler.py` owns all database I/O, while `corner_grocer_main.py` owns the menu logic. `CornerGrocerApp` (defined in `corner_grocer_main.py`) calls the module's functions in sequence at startup, during file ingestion, and in response to each menu selection.
 
 ```python
 from db_handler import (
@@ -18,113 +22,42 @@ from db_handler import (
 )
 ```
 
----
+Notice that `corner_grocer_main.py` itself imports only the six functions it needs at runtime; `clear_all_data` is available for maintenance scripts or interactive resets but is not called from the main menu loop.
 
-## `connect_to_db`
+## Startup sequence
+
+When `CornerGrocerApp.__init__` runs it calls two functions back to back:
 
 ```python
-def connect_to_db(db_name):
+def initialize_database(self):
+    self.conn = connect_to_db(self.db_file)
+    if not self.conn:
+        raise Exception("Failed to connect to database")
+    create_table(self.conn)
 ```
 
-Opens an existing SQLite database file or creates one if it does not exist. Prints a confirmation message on success or an error message on failure.
+`connect_to_db` either opens the existing `grocery.db` file or lets SQLite create it from scratch — either way you get back a live `sqlite3.Connection`. `create_table` immediately follows and issues `CREATE TABLE IF NOT EXISTS`, so the schema is guaranteed to be in place before any reads or writes happen. On a first run both calls do real work; on every subsequent run `connect_to_db` just opens the file and `create_table` is a safe no-op.
 
-<ParamField path="db_name" type="str" required>
-  Path to the SQLite database file, e.g. `"grocery.db"`. SQLite interprets this relative to the current working directory. If the file does not exist it is created automatically.
-</ParamField>
+## Writing data: the upsert pattern
 
-**Returns:** A `sqlite3.Connection` object on success, or `None` if the connection could not be established.
+Every item that enters the database goes through `insert_or_update_item`. The function performs a manual upsert: it queries for an existing row, then either increments the stored `frequency` or inserts a fresh row with `frequency = 1`.
 
 ```python
-from db_handler import connect_to_db
-
-conn = connect_to_db("grocery.db")
-if conn is None:
-    raise SystemExit("Could not open database.")
+insert_or_update_item(conn, "apples")   # inserts: apples, frequency=1
+insert_or_update_item(conn, "apples")   # updates: apples, frequency=2
+insert_or_update_item(conn, "bananas")  # inserts: bananas, frequency=1
 ```
 
-**Exceptions handled:** `sqlite3.Error` — caught internally; the error message is printed and `None` is returned instead of propagating.
+`CornerGrocerApp.add_item` strips whitespace and lowercases the item name before passing it here, so all stored keys are consistently lowercase. The function commits after every call, which means a crash mid-file leaves the database in a consistent (though incomplete) state rather than rolling back everything.
 
----
+## Reading data: three query patterns
 
-## `create_table`
+Three retrieval functions cover the different views the menu needs:
 
-```python
-def create_table(conn):
-```
-
-Creates the `grocery_frequency` table if it does not already exist. The statement is idempotent thanks to `CREATE TABLE IF NOT EXISTS`, so calling this function on an existing database with populated data is safe.
-
-<ParamField path="conn" type="sqlite3.Connection" required>
-  An active database connection returned by `connect_to_db`.
-</ParamField>
-
-**Returns:** `None`. Commits the DDL statement to the database on success.
+**`get_all_frequencies`** returns every item sorted A–Z. It backs menu options 2 (print list), 3 (print histogram), 4 (sort alphabetically), 6 (search), and 7 (save list to file).
 
 ```python
-from db_handler import connect_to_db, create_table
-
-conn = connect_to_db("grocery.db")
-create_table(conn)
-# grocery_frequency table now guaranteed to exist
-```
-
-**Exceptions handled:** `sqlite3.Error` — caught internally; the error message is printed and `sys.exit(1)` is called because the application cannot continue without a valid table.
-
----
-
-## `insert_or_update_item`
-
-```python
-def insert_or_update_item(conn, item):
-```
-
-Upserts a single grocery item. If the item already exists in `grocery_frequency`, its `frequency` column is incremented by one. If the item is new, a row is inserted with `frequency = 1`. Each call commits immediately.
-
-<ParamField path="conn" type="sqlite3.Connection" required>
-  An active database connection returned by `connect_to_db`.
-</ParamField>
-
-<ParamField path="item" type="str" required>
-  The grocery item name to insert or update. The caller is responsible for any normalisation (e.g. lowercasing) before passing the value — `CornerGrocerApp.add_item` strips whitespace and lowercases automatically.
-</ParamField>
-
-**Returns:** `None`.
-
-```python
-from db_handler import connect_to_db, create_table, insert_or_update_item
-
-conn = connect_to_db("grocery.db")
-create_table(conn)
-
-insert_or_update_item(conn, "apples")   # inserts with frequency = 1
-insert_or_update_item(conn, "apples")   # updates to frequency = 2
-insert_or_update_item(conn, "bananas")  # inserts with frequency = 1
-```
-
-**Exceptions handled:** `sqlite3.Error` — caught internally; the error message (including the item name) is printed, and the function returns without committing the failed operation.
-
----
-
-## `get_all_frequencies`
-
-```python
-def get_all_frequencies(conn):
-```
-
-Retrieves the name and frequency for every item in the table and returns them in a single dictionary sorted alphabetically by item name (A–Z). Used by menu options that display or export the full list.
-
-<ParamField path="conn" type="sqlite3.Connection" required>
-  An active database connection returned by `connect_to_db`.
-</ParamField>
-
-**Returns:** A `dict[str, int]` mapping item names to their frequency counts, ordered alphabetically. Returns an empty dictionary `{}` if the table is empty or a database error occurs.
-
-```python
-from db_handler import connect_to_db, get_all_frequencies
-
-conn = connect_to_db("grocery.db")
 frequencies = get_all_frequencies(conn)
-
 for item, count in frequencies.items():
     print(f"{item}: {count}")
 # apples: 2
@@ -132,64 +65,20 @@ for item, count in frequencies.items():
 # carrots: 5
 ```
 
-**Exceptions handled:** `sqlite3.Error` — caught internally; error message is printed and `{}` is returned.
-
----
-
-## `get_frequency_for_item`
+**`get_frequency_for_item`** looks up one item by name and returns its count, or `0` if the item is not found. Menu option 1 uses this for the single-item lookup. The `0` sentinel means callers never have to check for `None` or catch an exception.
 
 ```python
-def get_frequency_for_item(conn, item):
-```
-
-Looks up the purchase frequency for a single named item. Returns `0` when the item is not found rather than raising an exception, so callers can display a "not purchased" result without additional null-checks.
-
-<ParamField path="conn" type="sqlite3.Connection" required>
-  An active database connection returned by `connect_to_db`.
-</ParamField>
-
-<ParamField path="item" type="str" required>
-  The exact item name to look up. Because item names are stored in lowercase (via `CornerGrocerApp.add_item`), pass a lowercased string for a reliable match. The lookup is case-sensitive at the SQLite level.
-</ParamField>
-
-**Returns:** An `int` representing the frequency of the item. Returns `0` if the item does not exist in the table or if a database error occurs.
-
-```python
-from db_handler import connect_to_db, get_frequency_for_item
-
-conn = connect_to_db("grocery.db")
-
 count = get_frequency_for_item(conn, "apples")
-print(f"apples: {count}")    # apples: 2
+print(f"apples: {count}")        # apples: 2
 
 missing = get_frequency_for_item(conn, "dragonfruit")
-print(f"dragonfruit: {missing}")  # dragonfruit: 0
+print(f"dragonfruit: {missing}") # dragonfruit: 0
 ```
 
-**Exceptions handled:** `sqlite3.Error` — caught internally; error message is printed and `0` is returned.
-
----
-
-## `get_frequencies_sorted_by_count`
+**`get_frequencies_sorted_by_count`** orders items by descending frequency, breaking ties alphabetically. Menu options 5 (sort by frequency) and 8 (save histogram to file) use this to produce the ranked view.
 
 ```python
-def get_frequencies_sorted_by_count(conn):
-```
-
-Retrieves all items ordered by descending frequency, with alphabetical order as a tiebreaker for items sharing the same count. Used by menu options that display or export a ranked histogram.
-
-<ParamField path="conn" type="sqlite3.Connection" required>
-  An active database connection returned by `connect_to_db`.
-</ParamField>
-
-**Returns:** A `dict[str, int]` mapping item names to their frequency counts, ordered by `frequency DESC, item_name ASC`. Returns an empty dictionary `{}` if the table is empty or a database error occurs.
-
-```python
-from db_handler import connect_to_db, get_frequencies_sorted_by_count
-
-conn = connect_to_db("grocery.db")
 ranked = get_frequencies_sorted_by_count(conn)
-
 for item, count in ranked.items():
     print(f"{item}: {'*' * count}")
 # carrots: *****
@@ -197,35 +86,44 @@ for item, count in ranked.items():
 # bananas: *
 ```
 
-**Exceptions handled:** `sqlite3.Error` — caught internally; error message is printed and `{}` is returned.
+## Resetting the database
 
----
+Two approaches exist for clearing stored data, depending on whether you want to remove the file entirely or keep the schema in place.
 
-## `clear_all_data`
+**Delete the file** — the cleanest reset; the next run recreates everything from scratch:
 
-```python
-def clear_all_data(conn):
+```bash
+rm grocery.db
 ```
 
-Deletes every row from the `grocery_frequency` table, resetting the database to an empty state. The table structure (schema) is preserved — only the data rows are removed.
-
-<ParamField path="conn" type="sqlite3.Connection" required>
-  An active database connection returned by `connect_to_db`.
-</ParamField>
-
-**Returns:** `None`. Prints a confirmation message on success.
+**Clear rows programmatically** — keeps the file and table structure, removes only the data:
 
 ```python
 from db_handler import connect_to_db, clear_all_data
 
 conn = connect_to_db("grocery.db")
 clear_all_data(conn)
-# All data cleared from database.
 conn.close()
 ```
 
-**Exceptions handled:** `sqlite3.Error` — caught internally; error message is printed and the function returns without committing.
+`clear_all_data` executes `DELETE FROM grocery_frequency` and commits. The table structure is preserved and `connect_to_db` / `create_table` will not need to be called again before the next write — the table already exists, just empty.
 
 <Warning>
-  `clear_all_data` is **irreversible**. Once committed, deleted rows cannot be recovered unless you have a backup copy of `grocery.db`. If you need to preserve the current data, copy the `.db` file to a safe location before calling this function.
+  `clear_all_data` is irreversible. Once committed, deleted rows cannot be recovered unless you have a backup copy of `grocery.db`. Copy the `.db` file to a safe location before calling this function if you may need the data later.
 </Warning>
+
+## Error handling philosophy
+
+Every function in `db_handler.py` catches `sqlite3.Error` internally and either returns a safe fallback value (`None`, `0`, or `{}`) or calls `sys.exit(1)` for unrecoverable failures. The table below summarises the failure behaviour:
+
+| Function | On error |
+|---|---|
+| `connect_to_db` | Returns `None`; caller must check before proceeding |
+| `create_table` | Prints error and calls `sys.exit(1)` — cannot continue without a valid schema |
+| `insert_or_update_item` | Prints error and returns; the failed item is silently skipped |
+| `get_all_frequencies` | Returns `{}` |
+| `get_frequency_for_item` | Returns `0` |
+| `get_frequencies_sorted_by_count` | Returns `{}` |
+| `clear_all_data` | Prints error and returns without committing |
+
+The asymmetry between `create_table` (which exits) and the read/write functions (which return fallbacks) is intentional: if the schema cannot be created the application has no usable state, whereas a failed read or skipped write is a degraded-but-recoverable condition.

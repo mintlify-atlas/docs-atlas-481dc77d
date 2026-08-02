@@ -1,7 +1,7 @@
 ---
-title: "Rewriting Corner Grocer from C++ to Python"
+title: "Rewriting Corner Grocer from C++ to Class-Based Python"
 sidebarTitle: "C++ to Python"
-description: "How the original C++ grocery frequency application was redesigned in Python using a class-based structure, defaultdict, context managers, and input validation."
+description: "How the original C++ grocery frequency app was redesigned in Python using a class structure, defaultdict, context managers, and input validation."
 ---
 
 The original Corner Grocer program was a self-contained C++ console application. It declared a `std::map<std::string, int>` to accumulate purchase counts, opened the sales file with `ifstream`, and incremented the map entry for each item name read from the file. Three menu options — look up one item, print all items, print a histogram — covered the full feature set. The program completed its purpose, but the code was written as a single procedural flow with no class structure, no exception handling for missing files, no way to save output, and no input validation before user choices reached the application logic.
@@ -32,10 +32,10 @@ The central data-loading method, `process_input_file`, shows all of these change
 
 ```python
 def process_input_file(self, filename):
-    ################################################################
-    #  Reads items from input file and populates frequency dict    #
-    #  Equivalent to reading file and incrementing map in C++      #
-    ################################################################
+    ####################################################################
+    #  Reads items from input file and populates frequency dictionary   #
+    #  Equivalent to reading file and incrementing map values in C++   #
+    ####################################################################
     try:
         with open(filename, 'r') as file:
             for line in file:
@@ -43,9 +43,10 @@ def process_input_file(self, filename):
                 if item:
                     self.frequency[item] += 1
     except FileNotFoundError:
-        ############################################################
-        #  Equivalent to checking ifstream.fail() in C++          #
-        ############################################################
+        ################################################################
+        #  File Not Found Exception                                     #
+        #  Equivalent to checking ifstream.fail() in C++                #
+        ################################################################
         print(f"Error: File '{filename}' not found.")
         sys.exit(1)
 ```

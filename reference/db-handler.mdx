@@ -27,7 +27,7 @@ from db_handler import (
 ### `connect_to_db`
 
 ```python
-def connect_to_db(db_name: str) -> sqlite3.Connection | None
+def connect_to_db(db_name)
 ```
 
 Attempts to open (or create) a SQLite database file at `db_name` using `sqlite3.connect()`. On success, prints a confirmation message and returns the live connection object. On failure, prints the `sqlite3.Error` and returns `None`.
@@ -49,7 +49,7 @@ if conn is None:
 ### `create_table`
 
 ```python
-def create_table(conn: sqlite3.Connection) -> None
+def create_table(conn)
 ```
 
 Executes a `CREATE TABLE IF NOT EXISTS` statement that defines the `grocery_frequency` table. If the table already exists, the call is a no-op. Calls `sys.exit(1)` if the statement fails, ensuring the application does not continue without a valid schema.
@@ -83,7 +83,7 @@ create_table(conn)
 ### `insert_or_update_item`
 
 ```python
-def insert_or_update_item(conn: sqlite3.Connection, item: str) -> None
+def insert_or_update_item(conn, item)
 ```
 
 Performs a manual upsert: first queries `grocery_frequency` for a row whose `item_name` matches `item`. If a row is found, it increments `frequency` by 1 and issues an `UPDATE`. If no row is found, it inserts a new row with `frequency = 1`. Both paths commit the transaction.
@@ -114,7 +114,7 @@ insert_or_update_item(conn, 'bananas') # inserts row: bananas, frequency=1
 ### `get_all_frequencies`
 
 ```python
-def get_all_frequencies(conn: sqlite3.Connection) -> dict
+def get_all_frequencies(conn)
 ```
 
 Retrieves all rows from `grocery_frequency` ordered alphabetically by `item_name` (A–Z) and returns them as a plain Python dictionary.
@@ -138,7 +138,7 @@ print(freq)
 ### `get_frequency_for_item`
 
 ```python
-def get_frequency_for_item(conn: sqlite3.Connection, item: str) -> int
+def get_frequency_for_item(conn, item)
 ```
 
 Queries `grocery_frequency` for a single row where `item_name` equals `item` and returns its `frequency` value. Returns `0` if no matching row is found, matching the same sentinel value used by `GroceryFrequency.lookup_item_frequency`.
@@ -168,7 +168,7 @@ print(missing)  # 0
 ### `get_frequencies_sorted_by_count`
 
 ```python
-def get_frequencies_sorted_by_count(conn: sqlite3.Connection) -> dict
+def get_frequencies_sorted_by_count(conn)
 ```
 
 Retrieves all rows from `grocery_frequency` sorted by `frequency` descending, then by `item_name` ascending for ties, and returns them as a plain Python dictionary. This ordering matches the "Sort items by frequency (high → low)" menu option.
@@ -195,7 +195,7 @@ for item, count in sorted_freq.items():
 ### `clear_all_data`
 
 ```python
-def clear_all_data(conn: sqlite3.Connection) -> None
+def clear_all_data(conn)
 ```
 
 Executes `DELETE FROM grocery_frequency` to remove every row from the table, then commits the transaction. The table structure is preserved — only the data rows are removed. Prints a confirmation message on success.

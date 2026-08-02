@@ -115,8 +115,8 @@ A `CornerGrocerApp` wrapper class in `corner_grocer_main.py` owns the connection
 
 ```sql
 CREATE TABLE IF NOT EXISTS grocery_frequency (
-    id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    item_name TEXT    NOT NULL UNIQUE,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_name TEXT NOT NULL UNIQUE,
     frequency INTEGER NOT NULL
 );
 ```
@@ -197,14 +197,14 @@ Every enhancement was strictly additive. The table below shows how the original 
 | Look up item frequency | Option 1 | Option 1 | Option 1 |
 | Print all items and frequencies | Option 2 | Option 2 | Option 2 |
 | Print frequency histogram | Option 3 | Option 3 | Option 3 |
-| *(new)* Save frequency backup | Option 4 | Option 4 | — *(moved to 7)* |
-| *(new)* Save histogram backup | Option 5 | Option 5 | — *(moved to 8)* |
+| *(new)* Save frequency backup | Option 4 | — | Option 7 |
+| *(new)* Save histogram backup | Option 5 | — | Option 8 |
 | *(new)* Sort A–Z | — | Option 4 | Option 4 |
 | *(new)* Sort by frequency | — | Option 5 | Option 5 |
 | *(new)* Search | — | Option 6 | Option 6 |
 | Exit | Option 6 | Option 7 | Option 9 |
 
-The save options shifted from positions 4–5 to 7–8 in Enhancement Three to keep the new sort and search operations (which were already at 4–6 in Enhancement Two) in their same positions. No option was removed at any stage.
+Enhancement Two replaced the save backup options (Options 4 and 5 from Enhancement One) with the new sort and search operations, which took positions 4, 5, and 6. The save backup operations returned in Enhancement Three at positions 7 and 8, restored alongside the existing sort and search options. Exit shifted from Option 6 in Enhancement One, to Option 7 in Enhancement Two, and to Option 9 in Enhancement Three as the menu grew.
 
 <Tip>
   Developers extending Corner Grocer should follow the same additive pattern. New data-processing operations belong in `grocery_utils.py` (for in-memory transforms) or `db_handler.py` (for database queries). New menu entries should be appended above the exit option, and the exit option's number should be incremented accordingly. Existing option numbers and behavior should remain unchanged so that users familiar with the current menu are not surprised.
