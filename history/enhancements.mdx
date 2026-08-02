@@ -1,0 +1,211 @@
+---
+title: "Enhancement Two and Three: Algorithms and Database"
+sidebarTitle: "Enhancements"
+description: "Details of Enhancement Two (sorting, search, grocery_utils module) and Enhancement Three (SQLite integration via db_handler.py) in Corner Grocer."
+---
+
+Enhancements Two and Three built on the Python rewrite by adding data-manipulation capabilities and persistent storage, in that order. Each enhancement introduced new files, new functions, and new menu options without modifying or removing anything already working. A user who knew the five-option menu from Enhancement One would find all five operations unchanged in the nine-option final version.
+
+## Enhancement Two: Sorting and search
+
+### Why it matters
+
+The original frequency dictionary was populated in file-read order and iterated alphabetically only because `print_all_frequencies` called `sorted()` on the keys at print time. Users who needed to see which items sold most often had no way to reorder the list without reading every line and mentally sorting it themselves. A partial-name search was impossible without scanning the full output. Adding explicit sorting and search operations transformed the program from a raw reporter into a practical inventory tool.
+
+### What was added
+
+Three new functions were placed in `grocery_utils.py`:
+
+| Function | Purpose |
+|---|---|
+| `sort_alpha(freq_data)` | Prints all items in A–Z order by name |
+| `sort_by_freq(freq_data)` | Prints items from highest to lowest purchase count |
+| `search_item(freq_data, item_name)` | Looks up one item (case-insensitive) and prints its count or a not-found message |
+
+`grocery_utils.py` in full:
+
+```python
+####################################################################
+#  grocery_utils.py
+#  Contains helper functions for sorting and searching
+####################################################################
+
+####################################################################
+#  Sort items alphabetically
+#  Prints each item in A–Z order with its frequency count
+####################################################################
+def sort_alpha(freq_data):
+    for item in sorted(freq_data):
+        print(f"{item}: {freq_data[item]}")
+
+####################################################################
+#  Sort items by highest frequency
+#  Sorts from most to least sold then prints each item and count
+####################################################################
+def sort_by_freq(freq_data):
+    sorted_items = sorted(
+        freq_data.items(),
+        key=lambda x: x[1],
+        reverse=True
+    )
+    for item, freq in sorted_items:
+        print(f"{item}: {freq}")
+
+####################################################################
+#  Search for a specific item
+#  Checks dictionary and prints frequency or not found message
+####################################################################
+def search_item(freq_data, item_name):
+    item = item_name.lower()
+    if item in freq_data:
+        print(f"{item}: {freq_data[item]}")
+    else:
+        print("Item not found.")
+```
+
+### Modular design choice
+
+The three functions were placed in `grocery_utils.py` rather than inline in the menu's `if/elif` chain. The main file imports the module with `import grocery_utils as utils` and calls `utils.sort_alpha(grocery.frequency)`, `utils.sort_by_freq(grocery.frequency)`, and `utils.search_item(grocery.frequency, query)`. This keeps the menu loop focused on user interaction — reading input, validating it, calling the right function, printing results — while the data-processing logic stays in one testable location that can be updated without touching the menu code.
+
+### Normalization improvement
+
+Item names are lowercased at the point of ingestion in `process_input_file` (`item = line.strip().lower()`), so `Apple`, `apple`, and `APPLE` all map to the same `"apple"` key. `search_item` applies the same `.lower()` call on the user's query before checking the dictionary. In the browser demo, common singular and plural forms (`apple` / `apples`) were also unified so that the same physical product could not accumulate separate totals under slightly different spellings.
+
+### Menu expansion
+
+The menu grew from five to seven options (the original five plus the two new sort options and search, with the old exit renumbered to 7):
+
+```
+1. Look up item frequency
+2. Print all items and frequencies
+3. Print frequency histogram
+4. Sort items alphabetically (A–Z)
+5. Sort items by frequency (high → low)
+6. Search for a specific item
+7. Exit program
+```
+
+---
+
+## Enhancement Three: SQLite database
+
+### Why it matters
+
+In every version up to and including Enhancement Two, all data existed only while the program was running. Starting the program a second time meant re-reading the input file from scratch. Any manual additions made through the menu were gone when the program exited. SQLite solved this by replacing the in-memory `defaultdict` with a database file that persists on disk between sessions, without requiring a separate database server or any additional installation beyond the Python standard library's built-in `sqlite3` module.
+
+### What was added
+
+All database logic was placed in `db_handler.py`. The module exposes seven functions:
+
+| Function | Purpose |
+|---|---|
+| `connect_to_db(db_name)` | Opens a connection to the SQLite file, creating it if absent |
+| `create_table(conn)` | Creates the `grocery_frequency` table if it does not exist |
+| `insert_or_update_item(conn, item)` | Upserts one item record |
+| `get_all_frequencies(conn)` | Returns all items sorted alphabetically |
+| `get_frequency_for_item(conn, item)` | Returns the count for one specific item |
+| `get_frequencies_sorted_by_count(conn)` | Returns all items sorted by frequency descending |
+| `clear_all_data(conn)` | Deletes all rows from the table |
+
+A `CornerGrocerApp` wrapper class in `corner_grocer_main.py` owns the connection lifetime and delegates to `db_handler` functions for every data operation, keeping the menu loop free of direct SQL calls.
+
+### Schema
+
+`create_table` defines the following structure:
+
+```sql
+CREATE TABLE IF NOT EXISTS grocery_frequency (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_name TEXT    NOT NULL UNIQUE,
+    frequency INTEGER NOT NULL
+);
+```
+
+The `UNIQUE` constraint on `item_name` ensures that each grocery item has exactly one row. This constraint is what makes the upsert pattern in `insert_or_update_item` reliable: a SELECT confirms whether the row exists, and the result determines whether to UPDATE or INSERT.
+
+### Upsert logic
+
+`insert_or_update_item` uses a check-then-act pattern with parameterized queries:
+
+```python
+def insert_or_update_item(conn, item):
+    try:
+        cursor = conn.cursor()
+        cursor.execute(
+            "SELECT frequency FROM grocery_frequency WHERE item_name = ?;",
+            (item,)
+        )
+        result = cursor.fetchone()
+        if result:
+            new_count = result[0] + 1
+            cursor.execute(
+                "UPDATE grocery_frequency SET frequency = ? WHERE item_name = ?;",
+                (new_count, item)
+            )
+        else:
+            cursor.execute(
+                "INSERT INTO grocery_frequency (item_name, frequency) VALUES (?, 1);",
+                (item,)
+            )
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"Error inserting/updating item '{item}': {e}")
+```
+
+If the item already exists, its current frequency is fetched, incremented by one in Python, and written back. If it does not exist, a new row is inserted with `frequency = 1`. Both branches commit immediately, keeping the database consistent after every individual item update. The `?` placeholders in every query prevent SQL injection by passing values through the `sqlite3` parameter binding layer rather than string formatting.
+
+### Frequency sorting with tie-breaking
+
+`get_frequencies_sorted_by_count` uses a compound `ORDER BY` clause to produce a deterministic sort even when multiple items share the same count:
+
+```python
+cursor.execute("""
+    SELECT item_name, frequency
+    FROM grocery_frequency
+    ORDER BY frequency DESC, item_name ASC;
+""")
+```
+
+Items with the highest purchase counts appear first. When two items have identical frequencies, the secondary `item_name ASC` clause sorts them alphabetically, so the output order is stable and predictable regardless of insertion order.
+
+### Menu expansion
+
+Two save options were added, bringing the menu to nine entries:
+
+```
+1. Look up item frequency
+2. Print all items and frequencies
+3. Print frequency histogram
+4. Sort items alphabetically (A–Z)
+5. Sort items by frequency (high → low)
+6. Search for a specific item
+7. Save frequency list to frequency_list.dat
+8. Save histogram to frequency_histogram.dat
+9. Exit program
+```
+
+Options 7 and 8 write `.dat` files using `with open(...)` context managers and report success or a descriptive error message. Options 1 through 6 are identical in behavior to their Enhancement Two equivalents, now reading from the database instead of the in-memory dictionary.
+
+---
+
+## Backward compatibility
+
+Every enhancement was strictly additive. The table below shows how the original three C++ operations map through all four versions:
+
+| C++ menu option | Enh. One (Python) | Enh. Two | Enh. Three |
+|---|---|---|---|
+| Look up item frequency | Option 1 | Option 1 | Option 1 |
+| Print all items and frequencies | Option 2 | Option 2 | Option 2 |
+| Print frequency histogram | Option 3 | Option 3 | Option 3 |
+| *(new)* Save frequency backup | Option 4 | Option 4 | — *(moved to 7)* |
+| *(new)* Save histogram backup | Option 5 | Option 5 | — *(moved to 8)* |
+| *(new)* Sort A–Z | — | Option 4 | Option 4 |
+| *(new)* Sort by frequency | — | Option 5 | Option 5 |
+| *(new)* Search | — | Option 6 | Option 6 |
+| Exit | Option 6 | Option 7 | Option 9 |
+
+The save options shifted from positions 4–5 to 7–8 in Enhancement Three to keep the new sort and search operations (which were already at 4–6 in Enhancement Two) in their same positions. No option was removed at any stage.
+
+<Tip>
+  Developers extending Corner Grocer should follow the same additive pattern. New data-processing operations belong in `grocery_utils.py` (for in-memory transforms) or `db_handler.py` (for database queries). New menu entries should be appended above the exit option, and the exit option's number should be incremented accordingly. Existing option numbers and behavior should remain unchanged so that users familiar with the current menu are not surprised.
+</Tip>

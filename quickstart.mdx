@@ -1,47 +1,140 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get started with Corner Grocer in 5 minutes"
+sidebarTitle: "Quickstart"
+description: "Download the Python source files, prepare an input file, and run Corner Grocer from your terminal in under five minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+In this guide you will clone or download the Corner Grocer source files, create a small grocery input file, and run both the file-based and database-backed versions of the application from your terminal. By the end you will have a working frequency tracker, a populated SQLite database, and a clear picture of what each menu option does.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
+  <Step title="Download the source files">
+    Grab the four Python files from the `downloads/` directory of the repository and place them all in the **same working directory** on your machine:
 
-    ```bash
-    npm install your-package
     ```
+    your-project/
+    ├── corner_grocer.py
+    ├── grocery_utils.py
+    ├── corner_grocer_main.py
+    └── db_handler.py
+    ```
+
+    `corner_grocer.py` and `corner_grocer_main.py` are the two entry points. Both import `grocery_utils`; `corner_grocer_main.py` additionally imports `db_handler`. Keeping all four files together means Python can resolve every import without any extra configuration.
   </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
 
-    ```bash
-    your-cli init
+  <Step title="Create an input file">
+    Create a plain-text file called `grocery_input.txt` in the same directory. Add one item per line — the file below uses real items from the included sample:
+
+    ```plain
+    Apples
+    Bananas
+    Spinach
+    Potatoes
+    Tomatoes
+    Apples
+    Bananas
+    Carrots
+    Onions
+    Milk
+    Bread
+    Eggs
+    Chicken
+    Apples
+    Spinach
+    Bananas
+    Rice
+    Cheese
+    Oranges
+    Grapes
     ```
+
+    Items are normalized to lowercase when they are read, so you can mix capitalisation freely. Blank lines are ignored.
+
+    For the file-based version (`corner_grocer.py`), the default input filename is `grocery_frequency_input.txt`. You can either rename your file or edit the `INPUT_FILE` constant near the bottom of `corner_grocer.py`.
   </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+
+  <Step title="Run the file-based version">
+    From your project directory, run:
 
     ```bash
-    your-cli start
+    python corner_grocer.py
     ```
+
+    Corner Grocer reads `grocery_frequency_input.txt`, builds the frequency map in memory, and drops you into a 7-option interactive menu:
+
+    ```
+    ========== Corner Grocer Menu ==========
+    1. Look up item frequency
+    2. Print all items and frequencies
+    3. Print frequency histogram
+    4. Sort items alphabetically (A–Z)
+    5. Sort items by frequency (high → low)
+    6. Search for a specific item
+    7. Exit program
+    Enter your choice:
+    ```
+
+    Menu input is validated — entering a letter or a number outside 1–7 prints an error message and re-displays the prompt without crashing.
+  </Step>
+
+  <Step title="Run the database-backed version">
+    For persistent storage, run the second entry point:
+
+    ```bash
+    python corner_grocer_main.py
+    ```
+
+    On first launch, `db_handler.py` automatically creates `grocery.db` in the working directory and sets up the `grocery_frequency` table. The program then reads `grocery_input.txt`, populates the database, and opens a 9-option menu:
+
+    ```
+    Connected to database: grocery.db
+    Verified or created grocery_frequency table.
+    Processed input file: grocery_input.txt
+
+    ========== Corner Grocer Menu ==========
+    1. Look up item frequency
+    2. Print all items and frequencies
+    3. Print frequency histogram
+    4. Sort items alphabetically (A–Z)
+    5. Sort items by frequency (high → low)
+    6. Search for a specific item
+    7. Save frequency list to frequency_list.dat
+    8. Save histogram to frequency_histogram.dat
+    9. Exit program
+    Enter your choice:
+    ```
+
+    Because counts are stored in SQLite, running the program a second time with the same input file **accumulates** the new counts rather than resetting them.
+  </Step>
+
+  <Step title="Try a lookup">
+    At the menu prompt, enter `1` and press Enter. When asked for an item name, type `apples`:
+
+    ```
+    Enter your choice: 1
+    Enter item name: apples
+    apples was purchased 3 time(s).
+    ```
+
+    The lookup normalizes your input to lowercase before querying, so `Apples`, `APPLES`, and `apples` all return the same count. If an item is not in the log, the response is `0 time(s).` — no error is raised.
   </Step>
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## What to expect
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
+The table below covers every menu option across both entry points. Options 1–6 behave identically in both programs; options 7–9 are exclusive to `corner_grocer_main.py`.
+
+| Option | Label | Description |
+|--------|-------|-------------|
+| 1 | Look up item frequency | Prompts for an item name and prints how many times it appears in the purchase log. Returns `0` for unknown items. |
+| 2 | Print all items and frequencies | Displays every tracked item and its count, sorted alphabetically by `get_all_frequencies()` or `print_all_frequencies()`. |
+| 3 | Print frequency histogram | Renders a text bar chart — one `*` per purchase — for every item, sorted alphabetically. |
+| 4 | Sort items alphabetically (A–Z) | Calls `grocery_utils.sort_alpha()` to print all items in A–Z order with their counts. |
+| 5 | Sort items by frequency (high → low) | Calls `grocery_utils.sort_by_freq()` to rank items from most to least purchased. In the DB version, ties are broken alphabetically by the SQL `ORDER BY`. |
+| 6 | Search for a specific item | Calls `grocery_utils.search_item()`, which normalizes the query and either prints the count or `Item not found.` |
+| 7 *(DB only)* | Save frequency list to file | Writes all item names and counts to `frequency_list.dat` as `item count` pairs, one per line. |
+| 8 *(DB only)* | Save histogram to file | Writes the asterisk histogram (sorted by frequency descending) to `frequency_histogram.dat`. |
+| 7 *(file)* / 9 *(DB)* | Exit program | Prints `Goodbye!`, exits the menu loop, and — in the DB version — closes the SQLite connection cleanly. |
+
+<Tip>
+  Item names are normalized to lowercase at every entry point, so `Apples`, `apples`, and `APPLES` all count as the same item. This means your input file can use any capitalisation you like, and lookups will always match regardless of how you type them at the prompt.
 </Tip>

@@ -1,0 +1,283 @@
+---
+title: "CornerGrocerApp Class Reference"
+sidebarTitle: "CornerGrocerApp"
+description: "Reference for the CornerGrocerApp class in corner_grocer_main.py: the high-level wrapper that combines SQLite persistence with all grocery frequency operations."
+---
+
+`CornerGrocerApp` is the high-level application class in `corner_grocer_main.py`. It wraps the individual `db_handler` functions into a clean, object-oriented interface, handling database initialization automatically in the constructor and exposing methods that map directly to the interactive menu operations. Unlike `GroceryFrequency`, which stores frequencies in memory, `CornerGrocerApp` persists all data to a SQLite database file so that counts survive between program runs.
+
+## Instantiation and Basic Usage
+
+```python
+from corner_grocer_main import CornerGrocerApp
+
+app = CornerGrocerApp(db_file='grocery.db')
+app.process_input_text('Apples\nBananas\nApples\nCarrots')
+print(app.get_item_frequency('apples'))  # 2
+app.close()
+```
+
+---
+
+## Methods
+
+### `__init__`
+
+```python
+def __init__(self, db_file='grocery.db')
+```
+
+Stores the database file path in `self.db_file`, sets `self.conn` to `None`, and immediately calls `initialize_database()` to establish the connection and create the schema. Raises a generic `Exception` if `connect_to_db` returns `None` (indicating a connection failure), so the constructor either succeeds completely or raises rather than leaving the object in a broken state.
+
+<ParamField path="db_file" type="str" default="'grocery.db'">
+  File path for the SQLite database. The file is created automatically if it does not exist. Pass `':memory:'` for an ephemeral in-memory database during testing.
+</ParamField>
+
+**Returns:** A fully initialized `CornerGrocerApp` instance with an open database connection and a verified `grocery_frequency` table.
+
+```python
+# Default file path
+app = CornerGrocerApp()
+
+# Custom path
+app = CornerGrocerApp(db_file='data/production.db')
+```
+
+---
+
+### `initialize_database`
+
+```python
+def initialize_database(self)
+```
+
+Called automatically by `__init__`. Opens the SQLite connection via `connect_to_db(self.db_file)` and stores it in `self.conn`, then calls `create_table(self.conn)` to ensure the `grocery_frequency` table exists. Raises `Exception("Failed to connect to database")` if `connect_to_db` returns `None`.
+
+**Parameters:** None
+
+**Returns:** `None`. Sets `self.conn` as a side effect.
+
+**Error handling:** Raises `Exception` if the connection cannot be established. Any `sqlite3.Error` during table creation triggers `sys.exit(1)` inside `create_table`.
+
+```python
+# initialize_database is called internally — direct use is rare
+app = CornerGrocerApp()
+# Equivalent to:
+# app.conn = connect_to_db('grocery.db')
+# create_table(app.conn)
+```
+
+---
+
+### `add_item`
+
+```python
+def add_item(self, item: str) -> None
+```
+
+Validates that `item` is a non-empty string after stripping whitespace, then normalizes it to lowercase and delegates to `insert_or_update_item`. If `item` is empty or whitespace-only after stripping, the call is silently ignored.
+
+<ParamField path="item" type="str" required>
+  The grocery item name to record. Whitespace is stripped and the value is lowercased before storage.
+</ParamField>
+
+**Returns:** `None`. Updates the `grocery_frequency` table in place.
+
+```python
+app = CornerGrocerApp()
+app.add_item('Apples')   # stored as 'apples', frequency=1
+app.add_item('  Apples ')  # stored as 'apples', frequency=2
+app.add_item('')           # silently ignored
+```
+
+---
+
+### `process_input_text`
+
+```python
+def process_input_text(self, input_text: str) -> None
+```
+
+Splits `input_text` on newline characters (`'\n'`), strips each resulting token, and calls `add_item` for every non-empty token. Returns immediately if `input_text` is falsy (empty string or `None`). This is the primary bulk-import method for loading multiple items at once from a string buffer (e.g., the content of a file read into memory).
+
+<ParamField path="input_text" type="str" required>
+  A newline-delimited string of grocery item names. Each line should contain one item. Blank lines are ignored.
+</ParamField>
+
+**Returns:** `None`. Inserts or updates rows in `grocery_frequency` for each item.
+
+```python
+app = CornerGrocerApp()
+
+with open('grocery_input.txt', 'r', encoding='utf-8') as f:
+    content = f.read()
+
+app.process_input_text(content)
+```
+
+---
+
+### `get_item_frequency`
+
+```python
+def get_item_frequency(self, item: str) -> int
+```
+
+Normalizes `item` to lowercase and delegates to `get_frequency_for_item(self.conn, item.lower())`, returning the stored count or `0` if the item is not present.
+
+<ParamField path="item" type="str" required>
+  The item name to look up. Case-insensitive.
+</ParamField>
+
+**Returns:** `int` — the purchase frequency, or `0` if not found.
+
+```python
+app = CornerGrocerApp()
+app.add_item('apples')
+app.add_item('apples')
+
+print(app.get_item_frequency('Apples'))  # 2
+print(app.get_item_frequency('durian'))  # 0
+```
+
+---
+
+### `get_all_frequencies`
+
+```python
+def get_all_frequencies(self) -> dict
+```
+
+Delegates to `get_all_frequencies(self.conn)` from `db_handler` and returns the result directly. The returned dictionary is ordered alphabetically by item name (A–Z) as determined by the underlying SQL `ORDER BY item_name ASC` clause.
+
+**Parameters:** None
+
+**Returns:** `dict` — `{item_name: frequency}`, sorted A–Z. Returns `{}` on database error.
+
+```python
+app = CornerGrocerApp()
+app.process_input_text('apples\nbananas\napples\ncarrots')
+
+freq = app.get_all_frequencies()
+print(freq)
+# {'apples': 2, 'bananas': 1, 'carrots': 1}
+```
+
+---
+
+### `get_frequencies_sorted_by_count`
+
+```python
+def get_frequencies_sorted_by_count(self) -> dict
+```
+
+Delegates to `get_frequencies_sorted_by_count(self.conn)` from `db_handler` and returns the result directly. The dictionary is ordered by frequency descending, with alphabetical order used to break ties.
+
+**Parameters:** None
+
+**Returns:** `dict` — `{item_name: frequency}`, ordered by descending count (ties broken A–Z). Returns `{}` on database error.
+
+```python
+app = CornerGrocerApp()
+app.process_input_text('apples\nbananas\napples\napples\ncarrots\nbananas')
+
+sorted_freq = app.get_frequencies_sorted_by_count()
+print(sorted_freq)
+# {'apples': 3, 'bananas': 2, 'carrots': 1}
+```
+
+---
+
+### `close`
+
+```python
+def close(self) -> None
+```
+
+Closes the active SQLite connection stored in `self.conn`. Checks that `self.conn` is not `None` before calling `conn.close()` to avoid errors if the connection was never successfully opened. Should be called when the application is done with the database, typically at the end of the program's main block.
+
+**Parameters:** None
+
+**Returns:** `None`.
+
+```python
+app = CornerGrocerApp()
+# ... perform operations ...
+app.close()
+# SQLite connection is now closed
+```
+
+---
+
+## Standalone Helper Functions in corner_grocer_main.py
+
+The following module-level functions are defined in `corner_grocer_main.py` outside the `CornerGrocerApp` class. They manage the interactive terminal menu for the database-backed version of the application.
+
+---
+
+### `get_validated_choice`
+
+```python
+def get_validated_choice()
+```
+
+Prompts the user with `"Enter your choice: "` and attempts to parse the response as an integer. Returns the integer if it falls in the valid range 1–9 (inclusive). Prints `"Invalid input. Please enter a number from 1 to 9."` and returns `0` for any out-of-range value or non-integer input. This is an extended version of the same function in `corner_grocer.py` — the valid range is 9 rather than 7 to accommodate the two additional menu options (save frequency list and save histogram) added in this database-backed implementation.
+
+**Parameters:** None
+
+**Returns:** `int` — a valid choice in the range 1–9, or `0` on invalid input.
+
+```python
+choice = get_validated_choice()
+if choice == 0:
+    print("Re-prompting due to invalid input.")
+```
+
+---
+
+### `is_valid_item_name`
+
+```python
+def is_valid_item_name(item_name)
+```
+
+Validates that every character in `item_name` is either an alphabetic letter or a space. Rejects strings containing digits, punctuation, or other special characters. This function has identical behavior to `is_valid_item_name` in `corner_grocer.py`.
+
+<ParamField path="item_name" type="str" required>
+  The item name string to validate.
+</ParamField>
+
+**Returns:** `bool` — `True` if all characters are alphabetic or spaces, `False` otherwise.
+
+```python
+print(is_valid_item_name("green beans"))  # True
+print(is_valid_item_name("item#1"))       # False
+```
+
+---
+
+### `print_menu`
+
+```python
+def print_menu()
+```
+
+Prints the nine-option Corner Grocer interactive menu to `stdout` and flushes the output buffer. Compared to the seven-option menu in `corner_grocer.py`, this version adds two additional options for saving output to `.dat` files.
+
+**Parameters:** None
+
+**Returns:** `None`
+
+```python
+print_menu()
+# ========== Corner Grocer Menu ==========
+# 1. Look up item frequency
+# 2. Print all items and frequencies
+# 3. Print frequency histogram
+# 4. Sort items alphabetically (A–Z)
+# 5. Sort items by frequency (high → low)
+# 6. Search for a specific item
+# 7. Save frequency list to frequency_list.dat
+# 8. Save histogram to frequency_histogram.dat
+# 9. Exit program
+```

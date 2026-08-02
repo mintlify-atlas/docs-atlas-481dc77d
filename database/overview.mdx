@@ -1,0 +1,96 @@
+---
+title: "SQLite Database Integration in Corner Grocer"
+sidebarTitle: "Overview"
+description: "Corner Grocer uses SQLite for persistent grocery frequency storage across sessions — no server required. Learn the schema, data flow, and design decisions."
+---
+
+Enhancement Three replaced Corner Grocer's original in-memory frequency tracking with a SQLite backend. Instead of building a dictionary that vanishes when the program exits, every item and its purchase count is now written to a `.db` file on disk. The next time you launch the application the data is already there — no import step required, no server to start, no configuration to manage.
+
+## Why SQLite
+
+SQLite ships with Python's standard library. A single `import sqlite3` is all that is needed — there are no third-party packages to install and no database server process to run. All data lives in a single `.db` file placed in the working directory alongside the scripts. This makes the application fully self-contained: moving or copying the project folder takes the database with it.
+
+## Database schema
+
+The application stores grocery frequency data in one table, `grocery_frequency`. The `CREATE TABLE` statement from `db_handler.py` is:
+
+```sql
+CREATE TABLE IF NOT EXISTS grocery_frequency (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_name TEXT NOT NULL UNIQUE,
+    frequency INTEGER NOT NULL
+);
+```
+
+| Column | Type | Description |
+|---|---|---|
+| `id` | `INTEGER` | Auto-incrementing primary key. Assigned by SQLite; never set by application code. |
+| `item_name` | `TEXT NOT NULL UNIQUE` | The grocery item name. The `UNIQUE` constraint ensures each item appears in exactly one row; duplicate names trigger an update rather than a second insert. |
+| `frequency` | `INTEGER NOT NULL` | Running count of how many times the item has been recorded across all processed input files and sessions. |
+
+## Data flow
+
+<Steps>
+  <Step title="Open or create the database">
+    The application calls `connect_to_db('grocery.db')`. If the file does not exist SQLite creates it automatically; if it does exist the existing data is left intact. The function returns a `sqlite3.Connection` object (or `None` on failure).
+  </Step>
+  <Step title="Ensure the table exists">
+    `create_table(conn)` runs the `CREATE TABLE IF NOT EXISTS` statement shown above. On first run this creates the schema; on subsequent runs the `IF NOT EXISTS` guard makes the call a safe no-op that leaves existing rows untouched.
+  </Step>
+  <Step title="Load items from the input file">
+    `corner_grocer_main.py` reads `grocery_input.txt` line-by-line and passes each item name to `insert_or_update_item(conn, item)`. If the item is not yet in the table it is inserted with `frequency = 1`. If it already exists, the stored frequency is incremented by one. Both branches commit immediately so the database stays consistent even if the program is interrupted mid-file.
+  </Step>
+  <Step title="Serve menu queries">
+    The interactive menu calls one of three read functions depending on the user's selection:
+    - `get_all_frequencies(conn)` — returns every item sorted A–Z (menu options 2, 3, 4, 6, 7).
+    - `get_frequency_for_item(conn, item)` — returns the count for a single named item (menu option 1).
+    - `get_frequencies_sorted_by_count(conn)` — returns all items ordered by frequency descending, then A–Z for ties (menu options 5, 8).
+  </Step>
+  <Step title="Close the connection">
+    When the user selects **Exit** (option 9), the `while` loop ends and `app.close()` calls `conn.close()`. This flushes any remaining writes and releases the file lock so other processes can access the file.
+  </Step>
+</Steps>
+
+## Persistence across sessions
+
+Because frequency data lives in `grocery.db` rather than in memory, every program run builds on the previous one. If you processed `grocery_input.txt` yesterday and run the application again today against the same file, each item count doubles — the new readings are added on top of the existing rows.
+
+To start fresh you have two options:
+
+**Delete the database file** — the next run will create a new, empty `grocery.db`:
+
+```bash
+rm grocery.db
+```
+
+**Clear all rows programmatically** — preserves the file and table structure but empties all data:
+
+```python
+from db_handler import connect_to_db, clear_all_data
+
+conn = connect_to_db("grocery.db")
+clear_all_data(conn)
+conn.close()
+```
+
+## Separation of concerns
+
+All SQL statements and database-specific error handling live exclusively in `db_handler.py`. The main application (`corner_grocer_main.py`) never constructs a query string or touches a cursor — it imports and calls the seven named functions exposed by the module:
+
+```python
+from db_handler import (
+    connect_to_db,
+    create_table,
+    insert_or_update_item,
+    get_all_frequencies,
+    get_frequency_for_item,
+    get_frequencies_sorted_by_count,
+    clear_all_data,
+)
+```
+
+This boundary means the database layer can be unit-tested in isolation without launching the full application, and the underlying storage engine could be swapped (for example, to PostgreSQL) by rewriting `db_handler.py` alone without touching the menu logic or `CornerGrocerApp`.
+
+<Note>
+  `grocery.db` is created in whichever directory you run the script from — not necessarily where `db_handler.py` lives. If you run `python downloads/corner_grocer_main.py` from the project root, the database file will appear in the project root, not inside `downloads/`.
+</Note>

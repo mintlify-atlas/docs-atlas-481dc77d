@@ -1,0 +1,66 @@
+---
+title: "Corner Grocer Project History and Evolution"
+sidebarTitle: "Overview"
+description: "How Corner Grocer evolved from a C++ console app through three Python enhancements to a database-backed application with a browser demo."
+---
+
+Corner Grocer began as a C++ console program with a single purpose: read a grocery sales file, count item frequencies, and display the results. Over four distinct stages, that foundation was restructured into a class-based Python application, expanded with sorting and search capabilities, and given a persistent SQLite backend — while every original feature remained intact throughout. A final browser demo made the project accessible to anyone with a web browser, no installation required.
+
+## Project stages
+
+<Steps>
+  <Step title="Original C++ application">
+    The starting point was a procedural C++ program that read daily sales data from a text file and stored each item's purchase count in a `std::map<std::string, int>`. Users were presented with three menu options: look up the frequency of a single item, print the full frequency list, and display a histogram of item counts using asterisks. The program used `ifstream` for file reading and iterated the map for output. It completed its intended task reliably, but the code had no error handling, no way to save output, no persistence between runs, and no organizational separation between data processing and user interaction.
+  </Step>
+  <Step title="Enhancement One: Python rewrite">
+    The application was rewritten from scratch in Python. All core functionality was encapsulated in a `GroceryFrequency` class, and `collections.defaultdict(int)` replaced `std::map`. File reading adopted Python's `with open(...)` context manager pattern for safe, automatic resource cleanup. A `FileNotFoundError` handler replaced the silent failure of `ifstream.fail()`.
+
+    New capabilities added in this stage included `is_valid_item_name` and `get_validated_choice` for input validation, descriptive error messages, and two new menu options for saving backup copies of the frequency list and the histogram. The program confirmed successful writes and displayed the full save path to the user. The menu grew from three to five options (six in total with exit).
+  </Step>
+  <Step title="Enhancement Two: Sorting and search">
+    A new utility module, `grocery_utils.py`, introduced three data-manipulation functions: `sort_alpha` (alphabetical A–Z), `sort_by_freq` (descending by purchase count), and `search_item` (exact and partial lookup with normalization). The functions were imported via `import grocery_utils as utils` and wired into three new menu entries, expanding the menu from five to seven options (including exit).
+
+    Keeping these operations in a dedicated module preserved separation of concerns: the main file remained focused on application flow, while all data-processing logic lived in a testable, reusable utility file. Item normalization improvements in this stage meant that `Apple`, `apple`, and `apples` were treated as the same record rather than separate entries.
+  </Step>
+  <Step title="Enhancement Three: SQLite persistence">
+    A second new module, `db_handler.py`, replaced the in-memory `defaultdict` with a SQLite backend. Data now persists across program sessions without requiring a separate database server. The module contains seven functions covering connection management, schema creation, upsert operations, alphabetical retrieval, frequency-sorted retrieval, single-item lookup, and data clearing.
+
+    A `CornerGrocerApp` wrapper class in `corner_grocer_main.py` coordinated the database layer with the menu. Two additional menu options — save frequency list to `frequency_list.dat` and save histogram to `frequency_histogram.dat` — brought the menu to nine options. All six previously available operations were preserved unchanged.
+  </Step>
+  <Step title="Browser demo">
+    Because the command-line application required Python and a local SQLite setup, a static browser demo was built for GitHub Pages using HTML, CSS, and JavaScript. The demo reproduces all application features — item lookup, full frequency list, histogram, alphabetical sort, frequency sort, partial search, manual item entry, and downloadable report exports — in a visual interface. Browser `localStorage` simulates the persistence behavior of SQLite across page reloads. The demo is intended to let visitors interact with the project directly; the downloadable Python source files remain the complete implementation.
+  </Step>
+</Steps>
+
+## Design principles applied
+
+Several themes run through every stage of the project:
+
+**Separation of concerns.** Each enhancement added a new file rather than growing the main file. `grocery_utils.py` owns sorting and search logic. `db_handler.py` owns every SQL statement. `corner_grocer_main.py` owns the menu loop. No file crosses into another's responsibility.
+
+**Input validation.** Every point of user input — menu choices, item name lookups, and search queries — is validated before reaching application logic. `is_valid_item_name` rejects anything that is not letters and spaces. `get_validated_choice` catches both non-integer input and out-of-range integers without crashing the program.
+
+**Exception handling.** File operations, database connections, and query execution are all wrapped in `try/except` blocks with descriptive messages. A missing input file, a failed database connection, or a failed write operation produces a clear explanation rather than a traceback.
+
+**Backward compatibility.** No enhancement removed or changed the behavior of any previously working feature. A user familiar with the original C++ application's three operations would find all three present in every subsequent version, at the same menu positions, with the same output format.
+
+**Normalization.** Item names are lowercased at the point of ingestion so that `Apple`, `apple`, and `APPLE` all map to the same record. Singular and plural variants are handled consistently to prevent split totals across related forms of the same product name.
+
+## Explore the detail pages
+
+<CardGroup cols={2}>
+  <Card
+    title="C++ to Python"
+    icon="arrow-right-arrow-left"
+    href="history/cpp-to-python"
+  >
+    How the procedural C++ application was redesigned as a class-based Python program — structural changes, new patterns, and what stayed the same.
+  </Card>
+  <Card
+    title="Enhancements Two and Three"
+    icon="layer-group"
+    href="history/enhancements"
+  >
+    Adding sorting and search via `grocery_utils.py`, then replacing in-memory storage with a persistent SQLite backend via `db_handler.py`.
+  </Card>
+</CardGroup>

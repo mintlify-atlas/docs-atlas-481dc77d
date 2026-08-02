@@ -1,0 +1,123 @@
+---
+title: "grocery_utils.py — Sorting and Search Functions"
+sidebarTitle: "grocery_utils"
+description: "Reference for the three helper functions in grocery_utils.py: alphabetical sort, frequency sort, and item search for grocery frequency dictionaries."
+---
+
+`grocery_utils.py` is a utility module containing three pure functions for sorting and searching a frequency dictionary. It defines no classes, holds no state, and produces no side effects beyond printing results directly to `stdout`. These functions accept any Python dictionary whose keys are item-name strings and whose values are integer counts — they are compatible with both `GroceryFrequency.frequency` (a `defaultdict`) and the plain `dict` objects returned by `db_handler` query functions.
+
+## Import
+
+```python
+import grocery_utils as utils
+```
+
+---
+
+## Functions
+
+### `sort_alpha`
+
+```python
+def sort_alpha(freq_data)
+```
+
+Iterates over the keys of `freq_data` in alphabetical (A–Z) order using Python's built-in `sorted()` and prints each item and its count in the format `item: count`. Keys that differ only in case will already be normalized to lowercase if data has been loaded through `GroceryFrequency` or `CornerGrocerApp`.
+
+<ParamField path="freq_data" type="dict" required>
+  A dictionary mapping item-name strings to integer frequency counts. For example, `{'apples': 4, 'bananas': 3}`.
+</ParamField>
+
+**Returns:** `None`. Output is printed to `stdout`.
+
+```python
+import grocery_utils as utils
+
+freq = {'carrots': 2, 'apples': 4, 'bananas': 3}
+utils.sort_alpha(freq)
+# apples: 4
+# bananas: 3
+# carrots: 2
+```
+
+---
+
+### `sort_by_freq`
+
+```python
+def sort_by_freq(freq_data)
+```
+
+Sorts `freq_data` by value (frequency count) in descending order using `sorted(..., key=lambda x: x[1], reverse=True)` and prints each item and its count in the format `item: count`. Items with equal counts are printed in the order Python's sort returns them (stable sort preserving original insertion order for ties).
+
+<ParamField path="freq_data" type="dict" required>
+  A dictionary mapping item-name strings to integer frequency counts.
+</ParamField>
+
+**Returns:** `None`. Output is printed to `stdout`.
+
+```python
+import grocery_utils as utils
+
+freq = {'carrots': 2, 'apples': 4, 'bananas': 3}
+utils.sort_by_freq(freq)
+# apples: 4
+# bananas: 3
+# carrots: 2
+```
+
+---
+
+### `search_item`
+
+```python
+def search_item(freq_data, item_name)
+```
+
+Normalizes `item_name` to lowercase and checks whether it exists as a key in `freq_data`. If found, prints `item: count`. If not found, prints `Item not found.` Both messages are written directly to `stdout`.
+
+<ParamField path="freq_data" type="dict" required>
+  A dictionary mapping lowercase item-name strings to integer frequency counts.
+</ParamField>
+
+<ParamField path="item_name" type="str" required>
+  The item to search for. Case-insensitive — the function applies `.lower()` before the lookup.
+</ParamField>
+
+**Returns:** `None`. Output is printed to `stdout`.
+
+```python
+import grocery_utils as utils
+
+freq = {'apples': 4, 'bananas': 3}
+utils.search_item(freq, 'Apples')   # apples: 4
+utils.search_item(freq, 'BANANAS')  # bananas: 3
+utils.search_item(freq, 'durian')   # Item not found.
+```
+
+---
+
+## Combined Example
+
+```python
+import grocery_utils as utils
+
+freq = {'apples': 4, 'bananas': 3, 'carrots': 2}
+
+utils.sort_alpha(freq)
+# apples: 4
+# bananas: 3
+# carrots: 2
+
+utils.sort_by_freq(freq)
+# apples: 4
+# bananas: 3
+# carrots: 2
+
+utils.search_item(freq, 'Apples')  # case-insensitive
+# apples: 4
+```
+
+<Note>
+  All three functions print directly to `stdout` and return `None`. They are designed for terminal use and are not suitable for contexts where programmatic access to sorted or filtered results is required. If you need to consume the output in code, use Python's built-in `sorted()` directly on your frequency dictionary.
+</Note>

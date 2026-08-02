@@ -1,0 +1,68 @@
+---
+title: "Running and Using the Corner Grocer Browser Demo"
+sidebarTitle: "Using the Demo"
+description: "Step-by-step guide to launching the Corner Grocer browser demo, adding items, running all menu operations, and downloading frequency reports."
+---
+
+There are two ways to run the Corner Grocer browser demo: via GitHub Pages, where no setup is needed and the demo loads instantly with sample data pre-populated, or locally by opening `demo.html` directly in any modern browser after downloading the repository. Both paths give you the full interactive experience — no Python installation, no database configuration, and no web server required.
+
+## Launching the demo
+
+<Steps>
+  <Step title="GitHub Pages — no setup required">
+    Visit the project's GitHub Pages URL. The demo loads immediately in your browser with a default dataset of grocery items already in place. Every menu option is available from the moment the page finishes loading — no login, no installation, and no configuration needed.
+  </Step>
+  <Step title="Run locally — open demo.html directly">
+    Clone or download the repository to your machine. Locate `demo.html` in the project root and open it in any modern browser (Chrome, Firefox, Edge, or Safari). You can open it directly from your file system — no local web server is needed. The demo behaves identically to the GitHub Pages version.
+  </Step>
+</Steps>
+
+## Using the menu
+
+The left sidebar contains a **Menu Options** section with nine numbered buttons that correspond directly to the nine menu options in the Python command-line application. Click any button to load its panel in the main content area.
+
+| # | Button label | What it does in the browser |
+|---|---|---|
+| 1 | **Look up item frequency** | Displays a text input. Type an item name and click the lookup button to see how many times that item appears in the current dataset. Returns a "not found" message if the item is absent. |
+| 2 | **Print all frequencies** | Immediately renders the full item list with each item's purchase count, displayed in the output panel as plain text. |
+| 3 | **Print histogram** | Renders a text histogram in the output panel. Each item is followed by a row of asterisks — one `*` per occurrence — replicating the visualization from the Python and C++ versions. |
+| 4 | **Sort alphabetically** | Re-renders the full frequency list in ascending A–Z order by item name. |
+| 5 | **Sort by frequency** | Re-renders the full frequency list sorted from highest purchase count to lowest. Items with equal counts are sub-sorted alphabetically. |
+| 6 | **Search specific item** | Displays a text input. Enter an item name to search for an exact match first; if no exact match is found, the demo returns all items whose normalized name contains the search term as a partial match. |
+| 7 | **Save frequency list** | Generates a plain-text representation of all item frequencies and triggers a browser download of `frequency_list.txt`. A confirmation message appears in the output panel when the download is initiated. |
+| 8 | **Save histogram** | Generates the asterisk histogram as plain text and triggers a browser download of `frequency_histogram.txt`. A confirmation message appears in the output panel when the download is initiated. |
+| 9 | **Exit** | Simulates the exit behavior of the command-line application. In the browser context, it clears the output panel and displays a "Goodbye!" message. To fully close the demo, navigate away from the page or close the browser tab. |
+
+## Adding items
+
+The **Add New Items** button sits at the top of the sidebar, above the numbered menu options. Clicking it opens the item entry panel in the main content area.
+
+To add items:
+
+1. Type one grocery item per line in the textarea. For example:
+   ```
+   Apples
+   Bananas
+   Bread
+   Milk
+   ```
+2. Click the **Add to Database** button. The demo validates every line — only letters and spaces are accepted. If any line contains invalid characters, the entire batch is rejected and the invalid entries are listed.
+3. On success, the items are appended to the current dataset and the **Data Summary** card in the sidebar updates immediately to reflect the new total item count, unique item count, and top-three most frequent items.
+
+The textarea is cleared after a successful submission so you can enter another batch without manually deleting the previous entries.
+
+## Data persistence in the browser
+
+The demo uses browser `localStorage` to retain your data between page visits. Any items added through the **Add New Items** panel are written to `localStorage` immediately. If you refresh the page or close and reopen the tab, the demo restores your saved items automatically — the dataset persists as long as `localStorage` is intact.
+
+Keep in mind that `localStorage` is scoped to the specific browser and origin:
+
+- Data entered in Chrome is **not** visible in Firefox or Edge.
+- Data entered in a normal browser window is **not** visible in a private/incognito window.
+- Clearing your browser's site data, cookies, or cache for the GitHub Pages origin (or the local file origin) will **reset the dataset** to the built-in default grocery items.
+
+If you want to preserve a snapshot of your data before clearing the browser, use **Option 7** to download `frequency_list.txt` first.
+
+<Tip>
+  The browser demo uses the same case-insensitive normalization as the Python version — `Apples` and `apples` are treated as the same item. Common singular and plural forms are also unified automatically: `Apple`, `apples`, `Peach`, and `peaches` each resolve to a single canonical key before counting, so duplicate records are never created from capitalization or pluralization differences.
+</Tip>

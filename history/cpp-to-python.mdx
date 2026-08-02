@@ -1,0 +1,76 @@
+---
+title: "Rewriting Corner Grocer from C++ to Python"
+sidebarTitle: "C++ to Python"
+description: "How the original C++ grocery frequency application was redesigned in Python using a class-based structure, defaultdict, context managers, and input validation."
+---
+
+The original Corner Grocer program was a self-contained C++ console application. It declared a `std::map<std::string, int>` to accumulate purchase counts, opened the sales file with `ifstream`, and incremented the map entry for each item name read from the file. Three menu options — look up one item, print all items, print a histogram — covered the full feature set. The program completed its purpose, but the code was written as a single procedural flow with no class structure, no exception handling for missing files, no way to save output, and no input validation before user choices reached the application logic.
+
+## Why Python
+
+Rewriting in Python made several cleaner patterns immediately available:
+
+- **`defaultdict(int)`** from the `collections` module behaves like `std::map` but initializes any missing key to `0` automatically, removing the need to check for key existence before incrementing a count.
+- **Class-based encapsulation** groups the frequency dictionary and every method that operates on it inside a single `GroceryFrequency` object, making the code more readable, testable, and easier to extend without touching unrelated logic.
+- **Context managers** (`with open(...) as file`) guarantee that file handles are closed even if an exception occurs mid-read, without requiring explicit `close()` calls or C++-style RAII patterns.
+- **Named exception types** (`except FileNotFoundError`) allow specific, descriptive error handling rather than checking stream state flags after the fact.
+
+## Structural changes
+
+The table below maps each element of the C++ design to its Python counterpart:
+
+| C++ original | Python rewrite |
+|---|---|
+| Procedural functions at file scope | Methods on the `GroceryFrequency` class |
+| `std::map<std::string, int>` | `collections.defaultdict(int)` |
+| `ifstream` with `is_open()` / `fail()` checks | `open()` inside a `with` block |
+| Silent program exit on bad file | `except FileNotFoundError` with a printed message |
+| Integer menu input with no validation | `get_validated_choice()` wrapping `int()` in `try/except` |
+| No item-name checking | `is_valid_item_name()` allowing only letters and spaces |
+
+The central data-loading method, `process_input_file`, shows all of these changes together:
+
+```python
+def process_input_file(self, filename):
+    ################################################################
+    #  Reads items from input file and populates frequency dict    #
+    #  Equivalent to reading file and incrementing map in C++      #
+    ################################################################
+    try:
+        with open(filename, 'r') as file:
+            for line in file:
+                item = line.strip().lower()
+                if item:
+                    self.frequency[item] += 1
+    except FileNotFoundError:
+        ############################################################
+        #  Equivalent to checking ifstream.fail() in C++          #
+        ############################################################
+        print(f"Error: File '{filename}' not found.")
+        sys.exit(1)
+```
+
+In the C++ version, a comparable block called `ifstream`, checked `.fail()` or `.is_open()`, and incremented the map entry with an explicit check for key existence (since accessing a missing key in `std::map` inserts a zero). In Python, `defaultdict(int)` makes `self.frequency[item] += 1` safe on first encounter without any existence check, and the `with` block closes the file handle whether the loop completes normally or raises an exception.
+
+## New features added in Enhancement One
+
+The Python rewrite introduced several capabilities the C++ version did not have:
+
+- **`is_valid_item_name(item_name)`** — accepts only alphabetic characters and spaces, rejecting numbers, punctuation, or empty strings before they reach the frequency lookup.
+- **`get_validated_choice()`** — wraps `int(input(...))` in a `try/except ValueError` block and range-checks the result, so non-integer input and out-of-range values both produce a clear message rather than a crash or silent loop.
+- **Backup export** — two new menu options let users save a copy of the frequency list or the histogram to named files at any point. The program confirms success and prints the full file path so users know exactly where the file was written.
+- **Descriptive error messages** — every error condition (missing file, invalid input, failed write) produces a sentence explaining what went wrong, replacing the silent failures and uncaught exceptions of the original.
+
+## What was preserved
+
+All three original operations are present in the Python version at the same menu positions with identical output behavior:
+
+1. **Look up item frequency** — calls `lookup_item_frequency(item)`, which uses `self.frequency.get(item.lower(), 0)` and returns the stored count or zero.
+2. **Print all items and frequencies** — calls `print_all_frequencies()`, which iterates `sorted(self.frequency.keys())` and prints each name with its count, matching the sorted map iteration of the C++ version.
+3. **Print frequency histogram** — calls `print_histogram()`, which iterates the same sorted key list and prints each item followed by a string of asterisks equal to its count, matching the C++ asterisk-loop behavior exactly.
+
+A user who knew the original three-option menu would find the same options in the same positions in the Python version. The two new backup options appeared as options 4 and 5 so that nothing was renumbered or removed.
+
+<Note>
+  The Python version uses `defaultdict(int)` which automatically initializes missing keys to `0`, eliminating the need for explicit existence checks before incrementing. Where C++ required `if (map.find(item) == map.end()) map[item] = 0;` before `map[item]++`, Python's `self.frequency[item] += 1` is safe on first access without any guard.
+</Note>

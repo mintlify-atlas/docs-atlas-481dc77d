@@ -1,0 +1,220 @@
+---
+title: "db_handler.py — SQLite Database Functions Reference"
+sidebarTitle: "db_handler"
+description: "Complete reference for all seven functions in db_handler.py, the SQLite access layer for Corner Grocer's persistent frequency storage."
+---
+
+`db_handler.py` provides the full SQLite data access layer for Corner Grocer. Each function corresponds to a single, discrete database operation — connecting, schema creation, upsert, retrieval, and deletion. You can import individual functions directly into application code or use them through the higher-level `CornerGrocerApp` wrapper class in `corner_grocer_main.py`.
+
+## Import
+
+```python
+from db_handler import (
+    connect_to_db,
+    create_table,
+    insert_or_update_item,
+    get_all_frequencies,
+    get_frequency_for_item,
+    get_frequencies_sorted_by_count,
+    clear_all_data
+)
+```
+
+---
+
+## Functions
+
+### `connect_to_db`
+
+```python
+def connect_to_db(db_name: str) -> sqlite3.Connection | None
+```
+
+Attempts to open (or create) a SQLite database file at `db_name` using `sqlite3.connect()`. On success, prints a confirmation message and returns the live connection object. On failure, prints the `sqlite3.Error` and returns `None`.
+
+<ParamField path="db_name" type="str" required>
+  The file path for the SQLite database. Use `':memory:'` for an in-memory database, or a relative/absolute file path such as `'grocery.db'`. If the file does not exist, SQLite creates it automatically.
+</ParamField>
+
+**Returns:** `sqlite3.Connection` on success, `None` on error.
+
+```python
+conn = connect_to_db('grocery.db')
+if conn is None:
+    raise RuntimeError("Could not open database.")
+```
+
+---
+
+### `create_table`
+
+```python
+def create_table(conn: sqlite3.Connection) -> None
+```
+
+Executes a `CREATE TABLE IF NOT EXISTS` statement that defines the `grocery_frequency` table. If the table already exists, the call is a no-op. Calls `sys.exit(1)` if the statement fails, ensuring the application does not continue without a valid schema.
+
+The SQL executed is:
+
+```sql
+CREATE TABLE IF NOT EXISTS grocery_frequency (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_name TEXT    NOT NULL UNIQUE,
+    frequency INTEGER NOT NULL
+);
+```
+
+<ParamField path="conn" type="sqlite3.Connection" required>
+  An open SQLite connection object, typically obtained from `connect_to_db`.
+</ParamField>
+
+**Returns:** `None`. Commits the DDL statement and prints a verification message.
+
+**Error handling:** Catches `sqlite3.Error`, prints the error, and calls `sys.exit(1)`.
+
+```python
+conn = connect_to_db('grocery.db')
+create_table(conn)
+# Verified or created grocery_frequency table.
+```
+
+---
+
+### `insert_or_update_item`
+
+```python
+def insert_or_update_item(conn: sqlite3.Connection, item: str) -> None
+```
+
+Performs a manual upsert: first queries `grocery_frequency` for a row whose `item_name` matches `item`. If a row is found, it increments `frequency` by 1 and issues an `UPDATE`. If no row is found, it inserts a new row with `frequency = 1`. Both paths commit the transaction.
+
+<ParamField path="conn" type="sqlite3.Connection" required>
+  An open SQLite connection object.
+</ParamField>
+
+<ParamField path="item" type="str" required>
+  The item name to insert or update. Should be pre-normalized to lowercase before calling this function to maintain consistent key casing.
+</ParamField>
+
+**Returns:** `None`. Modifies the `grocery_frequency` table in place.
+
+**Error handling:** Catches `sqlite3.Error` and prints an error message. Does not raise or exit — the failed operation is silently skipped.
+
+```python
+conn = connect_to_db('grocery.db')
+create_table(conn)
+
+insert_or_update_item(conn, 'apples')  # inserts row: apples, frequency=1
+insert_or_update_item(conn, 'apples')  # updates row: apples, frequency=2
+insert_or_update_item(conn, 'bananas') # inserts row: bananas, frequency=1
+```
+
+---
+
+### `get_all_frequencies`
+
+```python
+def get_all_frequencies(conn: sqlite3.Connection) -> dict
+```
+
+Retrieves all rows from `grocery_frequency` ordered alphabetically by `item_name` (A–Z) and returns them as a plain Python dictionary.
+
+<ParamField path="conn" type="sqlite3.Connection" required>
+  An open SQLite connection object.
+</ParamField>
+
+**Returns:** `dict` — keys are `item_name` strings, values are `frequency` integers. The dictionary preserves insertion order from the `ORDER BY item_name ASC` query result. Returns an empty `{}` on error.
+
+**Error handling:** Catches `sqlite3.Error`, prints an error message, and returns `{}`.
+
+```python
+freq = get_all_frequencies(conn)
+print(freq)
+# {'apples': 2, 'bananas': 1, 'carrots': 3}
+```
+
+---
+
+### `get_frequency_for_item`
+
+```python
+def get_frequency_for_item(conn: sqlite3.Connection, item: str) -> int
+```
+
+Queries `grocery_frequency` for a single row where `item_name` equals `item` and returns its `frequency` value. Returns `0` if no matching row is found, matching the same sentinel value used by `GroceryFrequency.lookup_item_frequency`.
+
+<ParamField path="conn" type="sqlite3.Connection" required>
+  An open SQLite connection object.
+</ParamField>
+
+<ParamField path="item" type="str" required>
+  The item name to look up. Should be lowercase to match stored keys.
+</ParamField>
+
+**Returns:** `int` — the frequency count for the item, or `0` if the item does not exist in the table.
+
+**Error handling:** Catches `sqlite3.Error`, prints an error message, and returns `0`.
+
+```python
+count = get_frequency_for_item(conn, 'apples')
+print(f"Apples: {count}")  # Apples: 2
+
+missing = get_frequency_for_item(conn, 'durian')
+print(missing)  # 0
+```
+
+---
+
+### `get_frequencies_sorted_by_count`
+
+```python
+def get_frequencies_sorted_by_count(conn: sqlite3.Connection) -> dict
+```
+
+Retrieves all rows from `grocery_frequency` sorted by `frequency` descending, then by `item_name` ascending for ties, and returns them as a plain Python dictionary. This ordering matches the "Sort items by frequency (high → low)" menu option.
+
+<ParamField path="conn" type="sqlite3.Connection" required>
+  An open SQLite connection object.
+</ParamField>
+
+**Returns:** `dict` — keys are `item_name` strings, values are `frequency` integers, ordered by descending frequency count (ties broken alphabetically). Returns an empty `{}` on error.
+
+**Error handling:** Catches `sqlite3.Error`, prints an error message, and returns `{}`.
+
+```python
+sorted_freq = get_frequencies_sorted_by_count(conn)
+for item, count in sorted_freq.items():
+    print(f"{item}: {'*' * count}")
+# carrots: ***
+# apples: **
+# bananas: *
+```
+
+---
+
+### `clear_all_data`
+
+```python
+def clear_all_data(conn: sqlite3.Connection) -> None
+```
+
+Executes `DELETE FROM grocery_frequency` to remove every row from the table, then commits the transaction. The table structure is preserved — only the data rows are removed. Prints a confirmation message on success.
+
+<ParamField path="conn" type="sqlite3.Connection" required>
+  An open SQLite connection object.
+</ParamField>
+
+**Returns:** `None`.
+
+**Error handling:** Catches `sqlite3.Error` and prints an error message.
+
+```python
+clear_all_data(conn)
+# All data cleared from database.
+
+print(get_all_frequencies(conn))  # {}
+```
+
+<Warning>
+  `clear_all_data` permanently deletes every row in the `grocery_frequency` table and cannot be undone. The only way to restore the data is to reprocess the original input file. Do not call this function during a live session unless you intend to completely reset the database.
+</Warning>

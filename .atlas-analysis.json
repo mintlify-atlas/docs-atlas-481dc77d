@@ -1,0 +1,99 @@
+{
+  "projectType": "general",
+  "projectName": "Corner Grocer",
+  "projectDescription": "A grocery frequency tracking application built in Python with SQLite persistence, advanced search and sorting, backup export, and a browser-based interactive demo.",
+  "theme": "almond",
+  "primaryColor": "#0288D1",
+  "lightColor": "#B2EBF2",
+  "darkColor": "#01579B",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": ["introduction", "quickstart"]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/frequency-tracking",
+              "features/sorting-searching",
+              "features/backup-export"
+            ]
+          },
+          {
+            "group": "Database",
+            "pages": [
+              "database/overview",
+              "database/db-handler"
+            ]
+          },
+          {
+            "group": "Browser Demo",
+            "pages": [
+              "demo/overview",
+              "demo/running-the-demo"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "API Reference",
+            "pages": [
+              "reference/grocery-frequency-class",
+              "reference/grocery-utils",
+              "reference/db-handler",
+              "reference/corner-grocer-app"
+            ]
+          },
+          {
+            "group": "Project History",
+            "pages": [
+              "history/overview",
+              "history/cpp-to-python",
+              "history/enhancements"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Item frequency lookup from text file or database",
+    "Alphabetical and frequency-based sorting",
+    "Partial-match item search with case-insensitive normalization",
+    "SQLite persistent storage via db_handler module",
+    "Backup export to frequency_list.dat and frequency_histogram.dat",
+    "Text-based asterisk histogram display",
+    "Browser-based interactive demo (no server required)",
+    "Input validation and exception handling throughout"
+  ],
+  "publicApiSurface": [
+    "GroceryFrequency.process_input_file(filename)",
+    "GroceryFrequency.lookup_item_frequency(item)",
+    "GroceryFrequency.print_all_frequencies()",
+    "GroceryFrequency.print_histogram()",
+    "grocery_utils.sort_alpha(freq_data)",
+    "grocery_utils.sort_by_freq(freq_data)",
+    "grocery_utils.search_item(freq_data, item_name)",
+    "db_handler.connect_to_db(db_name)",
+    "db_handler.create_table(conn)",
+    "db_handler.insert_or_update_item(conn, item)",
+    "db_handler.get_all_frequencies(conn)",
+    "db_handler.get_frequency_for_item(conn, item)",
+    "db_handler.get_frequencies_sorted_by_count(conn)",
+    "db_handler.clear_all_data(conn)",
+    "CornerGrocerApp.__init__(db_file)",
+    "CornerGrocerApp.add_item(item)",
+    "CornerGrocerApp.process_input_text(input_text)",
+    "CornerGrocerApp.get_item_frequency(item)",
+    "CornerGrocerApp.get_all_frequencies()",
+    "CornerGrocerApp.get_frequencies_sorted_by_count()",
+    "CornerGrocerApp.close()"
+  ]
+}

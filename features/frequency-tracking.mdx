@@ -1,0 +1,231 @@
+---
+title: "Item Frequency Tracking and Histogram Display"
+sidebarTitle: "Frequency Tracking"
+description: "How Corner Grocer reads a grocery purchase list, counts item occurrences, displays all frequencies, and renders an asterisk histogram in the terminal."
+---
+
+Corner Grocer's frequency tracking system is the core of the application. It reads a plain-text purchase log line by line, normalizes each item name to lowercase, and increments an internal counter for every occurrence. Once the file is loaded, users can query how many times any single item was purchased, print a full sorted list of every item and its count, or render an asterisk-based histogram directly in the terminal — all from the interactive menu.
+
+## How items are read
+
+The `process_input_file` method on the `GroceryFrequency` class reads the input file and populates the internal `frequency` dictionary:
+
+```python
+def process_input_file(self, filename):
+    try:
+        with open(filename, 'r') as file:
+            for line in file:
+                item = line.strip().lower()
+                if item:
+                    self.frequency[item] += 1
+    except FileNotFoundError:
+        print(f"Error: File '{filename}' not found.")
+        sys.exit(1)
+```
+
+**`defaultdict(int)`** — `self.frequency` is initialized as a `defaultdict(int)`, which means accessing any key that does not yet exist automatically returns `0` instead of raising a `KeyError`. This removes the need for an explicit "does this key exist?" check before incrementing — `self.frequency[item] += 1` works correctly on both new and existing keys.
+
+**Lowercase normalization** — each line is passed through `.strip()` to remove leading/trailing whitespace and newline characters, then through `.lower()` to convert to lowercase. `"Apples"`, `"APPLES"`, and `"apples"` are all stored as `"apples"` and counted together.
+
+**`FileNotFoundError`** — if the filename passed to the method does not exist on disk, Python raises `FileNotFoundError`. The `except` block catches it, prints a descriptive message, and calls `sys.exit(1)` to terminate the program cleanly rather than letting a traceback reach the user.
+
+<Note>
+  All item names are normalized to lowercase before they are stored in the frequency dictionary. If your input file contains `Apples`, `apples`, and `APPLES` on different lines, all three are counted as a single entry: `apples`. Capitalization differences are merged automatically.
+</Note>
+
+## Looking up a single item
+
+Menu option **1** prompts the user for a name and calls `lookup_item_frequency`:
+
+```python
+def lookup_item_frequency(self, item):
+    return self.frequency.get(item.lower(), 0)
+```
+
+The method normalizes the query to lowercase before the dictionary lookup, so user input of `Apples` correctly matches the stored key `apples`. `dict.get(key, default)` returns `0` when the item has never been seen, so the caller always receives an integer.
+
+**Example terminal interaction:**
+
+```
+Enter item name: apples
+apples was purchased 4 time(s).
+```
+
+Before the lookup is performed, the main loop validates the user's input using `is_valid_item_name`:
+
+```python
+def is_valid_item_name(item_name):
+    return all(ch.isalpha() or ch.isspace() for ch in item_name)
+```
+
+This function iterates over every character in the string and returns `True` only if every character is either an alphabetic letter (`ch.isalpha()`) or a space (`ch.isspace()`). Digits, punctuation, and other symbols cause it to return `False`, and the menu loop prints an error and re-prompts rather than executing the lookup. This prevents unexpected keys from being introduced into the dictionary through user queries.
+
+## Printing all frequencies
+
+Menu option **2** calls `print_all_frequencies`, which iterates over every stored item in alphabetical order and prints each name alongside its count:
+
+```python
+def print_all_frequencies(self):
+    for item in sorted(self.frequency.keys()):
+        print(f"{item}: {self.frequency[item]}")
+```
+
+`sorted()` is called on `self.frequency.keys()`, which produces a new alphabetically sorted list without modifying the underlying dictionary. Each line is formatted as `item: count`.
+
+**Sample output:**
+
+```
+apples: 4
+avocado: 1
+bananas: 4
+beef: 1
+bell peppers: 1
+bread: 3
+broccoli: 1
+butter: 1
+cantaloupe: 1
+carrots: 3
+cauliflower: 1
+cheese: 2
+chicken: 2
+corn: 1
+cucumber: 1
+eggs: 1
+fish: 1
+flour: 1
+garlic: 1
+ginger: 1
+grapes: 1
+green beans: 1
+herbs: 1
+lemons: 1
+lettuce: 1
+limes: 1
+mango: 1
+milk: 3
+nuts: 1
+oil: 1
+onions: 2
+oranges: 1
+pasta: 1
+peas: 1
+pepper: 1
+pineapple: 1
+potatoes: 2
+rice: 2
+salt: 1
+seeds: 1
+spinach: 3
+strawberries: 1
+sugar: 1
+tomatoes: 2
+watermelon: 1
+yogurt: 1
+```
+
+## Histogram display
+
+Menu option **3** calls `print_histogram`, which renders each item's count as a row of asterisks:
+
+```python
+def print_histogram(self):
+    for item in sorted(self.frequency.keys()):
+        count = self.frequency[item]
+        print(f"{item}: {'*' * count}")
+```
+
+The expression `'*' * count` repeats the asterisk character exactly `count` times. An item purchased once produces a single `*`; an item purchased four times produces `****`. Items are still iterated in alphabetical order so the histogram is easy to scan.
+
+**Sample output (first several items):**
+
+```
+apples: ****
+avocado: *
+bananas: ****
+beef: *
+bell peppers: *
+bread: ***
+broccoli: *
+butter: *
+carrots: ***
+cheese: **
+chicken: **
+```
+
+Each asterisk represents one purchase of that item. The longer the bar, the more frequently that item appeared in the input file.
+
+## Input file format
+
+Corner Grocer reads from `grocery_frequency_input.txt` by default (set as `INPUT_FILE` in `corner_grocer.py`). The expected format is one item name per line:
+
+```
+Apples
+Bananas
+Spinach
+Potatoes
+Tomatoes
+Apples
+Bananas
+Carrots
+Onions
+Milk
+Bread
+Eggs
+Chicken
+Beef
+Fish
+Apples
+Spinach
+Potatoes
+Bananas
+Tomatoes
+Carrots
+Onions
+Milk
+Bread
+Rice
+Pasta
+Cheese
+Yogurt
+Butter
+Oil
+Salt
+Pepper
+Sugar
+Flour
+Apples
+Bananas
+Spinach
+Carrots
+Milk
+Bread
+Chicken
+Rice
+Cheese
+Oranges
+Grapes
+Lettuce
+Cucumber
+Bell Peppers
+Broccoli
+Cauliflower
+Green Beans
+Peas
+Corn
+Strawberries
+Blueberries
+Watermelon
+Cantaloupe
+Pineapple
+Mango
+Avocado
+Lemons
+Limes
+Garlic
+Ginger
+Herbs
+Nuts
+Seeds
+```
+
+Each line holds one item name. Multi-word items such as `Bell Peppers` and `Green Beans` are supported because the only separator is the newline character. Blank lines are skipped — the `if item:` guard after `.strip()` ensures that empty strings are never added to the dictionary.

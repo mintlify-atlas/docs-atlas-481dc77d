@@ -1,0 +1,213 @@
+---
+title: "GroceryFrequency Class Reference"
+sidebarTitle: "GroceryFrequency"
+description: "Full reference for the GroceryFrequency class in corner_grocer.py: methods for reading input files, looking up items, printing frequencies, and rendering histograms."
+---
+
+`GroceryFrequency` is the core class in `corner_grocer.py`, encapsulating in-memory frequency storage using `collections.defaultdict`. It reads a plain-text grocery purchase log, accumulates per-item counts in memory, and exposes methods for lookups, sorted output, and ASCII histograms. This class is used by the file-based (non-database) version of Corner Grocer and works alongside the helper functions in `grocery_utils.py`.
+
+## Instantiation
+
+```python
+from collections import defaultdict
+import grocery_utils as utils
+
+# GroceryFrequency is defined in corner_grocer.py
+grocery = GroceryFrequency()
+grocery.process_input_file('grocery_frequency_input.txt')
+```
+
+---
+
+## Methods
+
+### `__init__`
+
+```python
+def __init__(self)
+```
+
+Initializes the `GroceryFrequency` instance by creating an empty `defaultdict(int)` for frequency storage. No file I/O is performed at construction time — the dictionary is populated lazily by calling `process_input_file`.
+
+**Parameters:** None
+
+**Returns:** A new `GroceryFrequency` instance with `self.frequency` set to an empty `defaultdict(int)`.
+
+```python
+grocery = GroceryFrequency()
+print(grocery.frequency)  # defaultdict(<class 'int'>, {})
+```
+
+---
+
+### `process_input_file`
+
+```python
+def process_input_file(self, filename)
+```
+
+Opens the given text file, reads it line by line, normalizes each line to lowercase, and increments the corresponding counter in `self.frequency`. Empty lines (after stripping) are ignored. If the file does not exist, the method prints an error message and terminates the process with `sys.exit(1)`.
+
+<ParamField path="filename" type="str" required>
+  Path to the input text file. Each non-empty line should contain exactly one item name. The file is read in the default system encoding.
+</ParamField>
+
+**Returns:** `None`. Populates `self.frequency` in place.
+
+**Error handling:** Catches `FileNotFoundError`. Prints `Error: File '{filename}' not found.` and exits with status code `1`.
+
+```python
+grocery = GroceryFrequency()
+grocery.process_input_file('grocery_frequency_input.txt')
+
+# After loading, self.frequency contains normalized lowercase keys
+print(grocery.frequency['apples'])  # e.g. 4
+```
+
+---
+
+### `lookup_item_frequency`
+
+```python
+def lookup_item_frequency(self, item)
+```
+
+Returns the purchase count for a single item. The `item` string is normalized to lowercase before the lookup so that `'Apples'`, `'APPLES'`, and `'apples'` all resolve to the same key. Returns `0` if the item has never been seen.
+
+<ParamField path="item" type="str" required>
+  The item name to look up. Case-insensitive.
+</ParamField>
+
+**Returns:** `int` — the number of times the item appeared in the input file, or `0` if not found.
+
+```python
+grocery = GroceryFrequency()
+grocery.process_input_file('grocery_frequency_input.txt')
+
+count = grocery.lookup_item_frequency('Apples')
+print(f"Apples were purchased {count} time(s).")
+# Apples were purchased 4 time(s).
+
+missing = grocery.lookup_item_frequency('durian')
+print(missing)  # 0
+```
+
+---
+
+### `print_all_frequencies`
+
+```python
+def print_all_frequencies(self)
+```
+
+Iterates over all keys in `self.frequency` sorted alphabetically (A–Z) and prints each item along with its count in the format `item: count`. Output is written directly to `stdout`.
+
+**Parameters:** None
+
+**Returns:** `None`
+
+```python
+grocery = GroceryFrequency()
+grocery.process_input_file('grocery_frequency_input.txt')
+grocery.print_all_frequencies()
+# apples: 4
+# bananas: 3
+# carrots: 2
+```
+
+---
+
+### `print_histogram`
+
+```python
+def print_histogram(self)
+```
+
+Iterates over all keys in `self.frequency` sorted alphabetically (A–Z) and prints each item followed by a string of asterisks whose length equals the item's count. This provides a visual bar chart in the terminal. Output is written directly to `stdout`.
+
+**Parameters:** None
+
+**Returns:** `None`
+
+```python
+grocery = GroceryFrequency()
+grocery.process_input_file('grocery_frequency_input.txt')
+grocery.print_histogram()
+# apples: ****
+# bananas: ***
+# carrots: **
+```
+
+---
+
+## Standalone Helper Functions
+
+The following module-level functions are defined in `corner_grocer.py` outside the `GroceryFrequency` class. They handle menu display and user input validation for the interactive terminal application.
+
+---
+
+### `get_validated_choice`
+
+```python
+def get_validated_choice()
+```
+
+Prompts the user with `"Enter your choice: "` and attempts to parse the response as an integer. Returns the integer if it falls in the range 1–7 (inclusive). Prints an error message and returns `0` for any out-of-range value or non-integer input.
+
+**Parameters:** None
+
+**Returns:** `int` — a valid choice in the range 1–7, or `0` on invalid input.
+
+```python
+choice = get_validated_choice()
+if choice == 0:
+    print("Re-prompting due to invalid input.")
+```
+
+---
+
+### `is_valid_item_name`
+
+```python
+def is_valid_item_name(item_name)
+```
+
+Validates that every character in `item_name` is either an alphabetic letter or a space. Rejects strings containing digits, punctuation, or other special characters.
+
+<ParamField path="item_name" type="str" required>
+  The item name string to validate.
+</ParamField>
+
+**Returns:** `bool` — `True` if all characters pass the check, `False` otherwise.
+
+```python
+print(is_valid_item_name("green beans"))  # True
+print(is_valid_item_name("item#1"))       # False
+print(is_valid_item_name("açaí"))         # False (non-ASCII)
+```
+
+---
+
+### `print_menu`
+
+```python
+def print_menu()
+```
+
+Prints the seven-option Corner Grocer interactive menu to `stdout` and flushes the output buffer. The menu includes options for item lookup, frequency display, histogram rendering, alphabetical sort, frequency sort, item search, and program exit.
+
+**Parameters:** None
+
+**Returns:** `None`
+
+```python
+print_menu()
+# ========== Corner Grocer Menu ==========
+# 1. Look up item frequency
+# 2. Print all items and frequencies
+# 3. Print frequency histogram
+# 4. Sort items alphabetically (A–Z)
+# 5. Sort items by frequency (high → low)
+# 6. Search for a specific item
+# 7. Exit program
+```

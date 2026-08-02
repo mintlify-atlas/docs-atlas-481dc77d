@@ -1,0 +1,182 @@
+---
+title: "Exporting and Saving Frequency Reports"
+sidebarTitle: "Backup & Export"
+description: "Save the frequency list and histogram to .dat files on demand using Corner Grocer's built-in export options, available in both the file-based and database-backed versions."
+---
+
+Corner Grocer can save its frequency data to disk at any time during a session. The database-backed version (`corner_grocer_main.py`) provides two dedicated export options in its menu: one that writes a plain frequency list and one that writes an asterisk histogram. These exports give you a persistent snapshot of the current purchase data that can be archived, shared, or opened in any text editor — without ending your session or losing any data from the running application.
+
+## Frequency list export
+
+**Menu option 7** in `corner_grocer_main.py` writes every item and its purchase count to `frequency_list.dat`, one entry per line:
+
+```python
+elif choice == 7:
+    try:
+        with open("frequency_list.dat", "w", encoding="utf-8") as f:
+            for item, freq in app.get_all_frequencies().items():
+                f.write(f"{item} {freq}\n")
+        print("Saved to frequency_list.dat")
+    except Exception as e:
+        print(f"Failed to save frequency list: {e}")
+```
+
+`app.get_all_frequencies()` returns a dictionary of all item names and their counts from the database. The loop writes each `(item, freq)` pair as `item count` — the item name, a single space, and the integer count — followed by a newline. The file is opened in `"w"` (write) mode with UTF-8 encoding so multi-character item names are handled correctly.
+
+**Sample `frequency_list.dat` content:**
+
+```
+apples 4
+avocado 1
+bananas 4
+beef 1
+bell peppers 1
+bread 3
+broccoli 1
+butter 1
+carrots 3
+cheese 2
+chicken 2
+corn 1
+cucumber 1
+eggs 1
+fish 1
+flour 1
+garlic 1
+ginger 1
+grapes 1
+green beans 1
+herbs 1
+lemons 1
+lettuce 1
+limes 1
+mango 1
+milk 3
+nuts 1
+oil 1
+onions 2
+oranges 1
+pasta 1
+peas 1
+pepper 1
+pineapple 1
+potatoes 2
+rice 2
+salt 1
+seeds 1
+spinach 3
+strawberries 1
+sugar 1
+tomatoes 2
+watermelon 1
+yogurt 1
+```
+
+## Histogram export
+
+**Menu option 8** writes a visual asterisk histogram to `frequency_histogram.dat`. Items are retrieved sorted by count (highest first) via `app.get_frequencies_sorted_by_count()`:
+
+```python
+elif choice == 8:
+    try:
+        with open("frequency_histogram.dat", "w", encoding="utf-8") as f:
+            for item, freq in app.get_frequencies_sorted_by_count().items():
+                f.write(f"{item}: {'*' * freq}\n")
+        print("Saved to frequency_histogram.dat")
+    except Exception as e:
+        print(f"Failed to save histogram: {e}")
+```
+
+The expression `'*' * freq` repeats the asterisk character exactly `freq` times, producing a bar whose length directly represents the item's purchase count. Items are ordered by descending frequency so the most-purchased items appear at the top of the file.
+
+**Sample `frequency_histogram.dat` content:**
+
+```
+apples: ****
+bananas: ****
+bread: ***
+carrots: ***
+milk: ***
+spinach: ***
+cheese: **
+chicken: **
+onions: **
+potatoes: **
+rice: **
+tomatoes: **
+avocado: *
+beef: *
+bell peppers: *
+broccoli: *
+butter: *
+corn: *
+cucumber: *
+eggs: *
+fish: *
+flour: *
+garlic: *
+ginger: *
+grapes: *
+green beans: *
+herbs: *
+lemons: *
+lettuce: *
+limes: *
+mango: *
+nuts: *
+oil: *
+oranges: *
+pasta: *
+peas: *
+pepper: *
+pineapple: *
+salt: *
+seeds: *
+strawberries: *
+sugar: *
+watermelon: *
+yogurt: *
+```
+
+## File-based backup (Enhancement One)
+
+The original Enhancement One (`corner_grocer.py`) tracks frequency using an in-memory `defaultdict(int)` rather than a database. Its menu offers 7 options (1–7, where 7 is Exit), so it does not include dedicated save menu entries. If you need persistent output from the file-based version, you can redirect terminal output to a file when running it from the command line, or add export logic modeled on the `corner_grocer_main.py` pattern shown above.
+
+The database-backed version (`corner_grocer_main.py`) introduced the dedicated export options as part of its expanded 9-option menu, making on-demand saves available without leaving the application.
+
+## Output file locations
+
+Both `.dat` files are written to the **current working directory** — the directory from which you launched the Python script. If you run the application from `/home/user/corner-grocer/`, both files will appear there:
+
+```
+/home/user/corner-grocer/
+├── corner_grocer_main.py
+├── grocery_utils.py
+├── db_handler.py
+├── grocery.db
+├── grocery_input.txt
+├── frequency_list.dat        ← created by option 7
+└── frequency_histogram.dat   ← created by option 8
+```
+
+After a successful save, the terminal confirms the operation:
+
+```
+Saved to frequency_list.dat
+```
+
+or
+
+```
+Saved to frequency_histogram.dat
+```
+
+If the write fails (for example, due to a permissions error), the `except Exception as e` block catches the error and prints the reason without crashing the application, so the menu remains available.
+
+<Note>
+  Exporting does **not** clear or reset any data. The `.dat` files are a point-in-time snapshot of the frequency data currently held in the database. You can continue using the application normally after exporting — adding items, sorting, searching — and export again at any time to capture an updated snapshot.
+</Note>
+
+<Warning>
+  If `frequency_list.dat` or `frequency_histogram.dat` already exists in the current working directory when you trigger an export, it will be **silently overwritten**. Python opens the file in `"w"` (write) mode, which truncates any existing content before writing. There is no prompt and no backup copy is made. If you need to preserve a previous export, rename or move the file before running the export again.
+</Warning>

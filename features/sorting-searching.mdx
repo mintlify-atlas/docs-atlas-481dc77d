@@ -1,0 +1,151 @@
+---
+title: "Sorting and Searching Grocery Item Data"
+sidebarTitle: "Sorting & Search"
+description: "Sort grocery items alphabetically or by purchase frequency, and search for specific items by name using Corner Grocer's modular utility functions."
+---
+
+`grocery_utils.py` provides three standalone helper functions — `sort_alpha`, `sort_by_freq`, and `search_item` — that handle all data-processing operations related to sorting and searching. Separating these functions into their own module keeps the menu loop in `corner_grocer.py` focused on user interaction while the utility module focuses purely on transforming and querying frequency data. The main file imports the module with `import grocery_utils as utils` and calls each function by name as needed.
+
+## Alphabetical sort
+
+`sort_alpha` accepts a frequency dictionary and prints every item in A–Z order alongside its purchase count:
+
+```python
+def sort_alpha(freq_data):
+    for item in sorted(freq_data):
+        print(f"{item}: {freq_data[item]}")
+```
+
+Python's built-in `sorted()` is called directly on the dictionary object. When a dictionary is passed to `sorted()`, it iterates over the dictionary's keys, so `sorted(freq_data)` produces a new alphabetically sorted list of item name strings without modifying the original dictionary. The function then prints each key with its corresponding value from `freq_data`.
+
+**Sample output:**
+
+```
+apples: 4
+avocado: 1
+bananas: 4
+beef: 1
+bell peppers: 1
+bread: 3
+broccoli: 1
+butter: 1
+carrots: 3
+cheese: 2
+chicken: 2
+```
+
+## Sort by frequency
+
+`sort_by_freq` accepts a frequency dictionary and prints items ranked from the highest purchase count to the lowest:
+
+```python
+def sort_by_freq(freq_data):
+    sorted_items = sorted(
+        freq_data.items(),
+        key=lambda x: x[1],
+        reverse=True
+    )
+    for item, freq in sorted_items:
+        print(f"{item}: {freq}")
+```
+
+`freq_data.items()` returns a view of `(key, value)` tuples — for example, `("apples", 4)`. The `key=lambda x: x[1]` argument tells `sorted()` to order the tuples by their second element (index `1`), which is the integer purchase count. Setting `reverse=True` flips the order so the largest count comes first. The result is stored in `sorted_items` as a list of `(item, freq)` tuples, which is then unpacked in the `for` loop.
+
+**Sample output:**
+
+```
+apples: 4
+bananas: 4
+bread: 3
+carrots: 3
+milk: 3
+spinach: 3
+cheese: 2
+chicken: 2
+onions: 2
+potatoes: 2
+rice: 2
+tomatoes: 2
+avocado: 1
+beef: 1
+bell peppers: 1
+```
+
+## Item search
+
+`search_item` looks up a single item by name and prints either its count or a not-found message:
+
+```python
+def search_item(freq_data, item_name):
+    item = item_name.lower()
+    if item in freq_data:
+        print(f"{item}: {freq_data[item]}")
+    else:
+        print("Item not found.")
+```
+
+The function normalizes `item_name` to lowercase before the dictionary lookup, matching the way all keys are stored in `freq_data`. If the normalized name exists as a key, its count is printed. If it does not exist, `"Item not found."` is printed instead.
+
+**Example — item present:**
+
+```
+Enter item to search: banana
+banana: 4
+```
+
+**Example — item absent:**
+
+```
+Enter item to search: xyz
+Item not found.
+```
+
+Before `search_item` is called from the menu loop, `is_valid_item_name` validates that the query contains only letters and spaces, preventing malformed lookups from reaching the dictionary.
+
+## Modular design
+
+Placing these three functions in `grocery_utils.py` rather than directly in `corner_grocer.py` reflects the principle of **separation of concerns**: the `GroceryFrequency` class and menu loop manage state and user interaction, while `grocery_utils.py` is a stateless collection of data-processing routines that take a dictionary as input and print results.
+
+This separation has practical benefits:
+
+- **Testability** — each function in `grocery_utils.py` can be called directly with a hand-constructed dictionary during testing, with no need to instantiate `GroceryFrequency` or run a menu loop.
+- **Reusability** — `corner_grocer_main.py` (the database-backed version) imports and calls the same utility functions with dictionaries returned from the database layer, so the same sorting and searching logic serves both application versions.
+- **Readability** — the menu loop in `corner_grocer.py` stays short and readable because the implementation details of sorting and searching are one import away rather than inlined.
+
+## Calling the utility functions from the menu
+
+The following excerpt from `corner_grocer.py` shows how choices 4, 5, and 6 delegate to the utility module:
+
+<CodeGroup>
+
+```python corner_grocer.py — choice 4 (sort A–Z)
+elif choice == 4:
+    print("\nItems sorted alphabetically (A–Z):")
+    utils.sort_alpha(grocery.frequency)
+```
+
+```python corner_grocer.py — choice 5 (sort by frequency)
+elif choice == 5:
+    print("\nItems sorted by frequency (high → low):")
+    utils.sort_by_freq(grocery.frequency)
+```
+
+```python corner_grocer.py — choice 6 (search)
+elif choice == 6:
+    query = input("Enter item to search: ").strip()
+    if not query:
+        print("Please enter a non-empty item name.")
+        continue
+    if not is_valid_item_name(query):
+        print("Invalid item name. Use letters and spaces only.")
+        continue
+    utils.search_item(grocery.frequency, query)
+```
+
+</CodeGroup>
+
+In each case, `grocery.frequency` — the `defaultdict(int)` maintained by the `GroceryFrequency` instance — is passed directly to the utility function. No copy is made; the functions read from the dictionary but do not modify it.
+
+<Tip>
+  Both `corner_grocer.py` and `grocery_utils.py` must be located in the same directory when you run the application. Python resolves `import grocery_utils as utils` relative to the directory of the file being executed, so if `grocery_utils.py` is missing or in a different folder you will see a `ModuleNotFoundError` immediately on startup.
+</Tip>

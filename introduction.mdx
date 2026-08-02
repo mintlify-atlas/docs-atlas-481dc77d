@@ -1,0 +1,83 @@
+---
+title: "Corner Grocer: Python Grocery Frequency Tracker"
+sidebarTitle: "Introduction"
+description: "Corner Grocer counts grocery item purchase frequencies from text files or SQLite, with sorting, search, histogram output, and a browser demo — all in pure Python."
+---
+
+Corner Grocer is a pure-Python command-line application that reads a grocery purchase log — one item name per line — and builds a frequency map showing how many times each item was bought. It was built for small retailers, data students, and hobbyists who want a fast, dependency-free way to answer questions like "which items sell most often?" without standing up a full analytics stack. Because it ships as four plain `.py` files and relies entirely on Python's standard library, it runs anywhere Python 3 is installed.
+
+## Project structure
+
+| File | Role |
+|---|---|
+| `corner_grocer.py` | **File-based entry point.** Defines the `GroceryFrequency` class, which reads `grocery_frequency_input.txt` into a `defaultdict`, then drives a 7-option interactive menu covering lookup, display, histogram, alpha-sort, frequency-sort, and search. |
+| `grocery_utils.py` | **Shared helper module.** Provides three stateless functions — `sort_alpha()`, `sort_by_freq()`, and `search_item()` — that accept a frequency dictionary and print results. Both entry points import this module. |
+| `db_handler.py` | **SQLite persistence layer.** Wraps all `sqlite3` calls (connect, create table, insert-or-update, query by item, query all, query sorted) into six clean functions so the rest of the app never touches raw SQL. |
+| `corner_grocer_main.py` | **Database-backed entry point.** Defines the `CornerGrocerApp` class, which delegates storage to `db_handler.py` and `grocery.db`, and drives a 9-option menu that adds backup-export options (options 7 and 8) on top of the core six. |
+
+## Core capabilities
+
+<CardGroup cols={2}>
+  <Card title="Frequency Lookup" icon="magnifying-glass">
+    Enter any item name and instantly see how many times it appears in the purchase log. Returns `0` for items not found — no crash, no exception.
+  </Card>
+  <Card title="Alphabetical Sort" icon="arrow-down-a-z">
+    Print every tracked item in A–Z order alongside its purchase count, powered by `grocery_utils.sort_alpha()`.
+  </Card>
+  <Card title="Frequency Sort" icon="arrow-down-wide-short">
+    Rank items from most-purchased to least with `grocery_utils.sort_by_freq()`. Ties are broken alphabetically in the database-backed version.
+  </Card>
+  <Card title="Item Search" icon="list-check">
+    Fuzzy-style search via `grocery_utils.search_item()` — normalizes the query to lowercase before checking the frequency map and prints a clear "Item not found." message when there is no match.
+  </Card>
+  <Card title="SQLite Persistence" icon="database">
+    `db_handler.py` creates `grocery.db` automatically on first run. The `grocery_frequency` table uses an `INSERT OR UPDATE` pattern so repeated runs accumulate counts rather than overwriting them.
+  </Card>
+  <Card title="Histogram Display" icon="chart-bar">
+    Renders a text-based bar chart by printing one asterisk (`*`) per purchase next to each item name — no plotting library required.
+  </Card>
+  <Card title="Backup Export" icon="floppy-disk">
+    Menu options 7 and 8 in `corner_grocer_main.py` write the frequency list to `frequency_list.dat` and the histogram to `frequency_histogram.dat` for archival or further processing.
+  </Card>
+  <Card title="Browser Demo" icon="browser">
+    The project includes a browser-based demo so you can explore the frequency tracker interactively without installing anything locally.
+  </Card>
+</CardGroup>
+
+## Input format
+
+Both entry points expect a plain-text file with **one grocery item per line**. `corner_grocer.py` reads `grocery_frequency_input.txt` by default; `corner_grocer_main.py` reads `grocery_input.txt`. Here is an excerpt from the included sample file:
+
+```plain
+Apples
+Bananas
+Spinach
+Potatoes
+Tomatoes
+Apples
+Bananas
+Carrots
+Onions
+Milk
+Bread
+Eggs
+Chicken
+Beef
+Fish
+Apples
+Spinach
+Potatoes
+Bananas
+Tomatoes
+```
+
+Each line is passed through `str.strip().lower()` before it is counted, so `Apples`, `apples`, and `APPLES` all increment the same `apples` key. Blank lines are skipped automatically. There is no header row, delimiter, or quoting — plain text is all you need.
+
+## Prerequisites
+
+- **Python 3.x** — any modern 3.x release works; no minimum minor version is required.
+- **Standard library only** — `collections`, `sqlite3`, and `sys` are the only imports across all four files. All three ship with every standard Python distribution.
+
+<Note>
+  No third-party packages are required. You do not need to run `pip install` or create a virtual environment. Download the four `.py` files, make sure Python 3 is on your `PATH`, and you are ready to go.
+</Note>

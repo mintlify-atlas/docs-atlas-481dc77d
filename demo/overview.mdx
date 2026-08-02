@@ -1,0 +1,63 @@
+---
+title: "Browser Demo: Corner Grocer Without Installation"
+sidebarTitle: "Overview"
+description: "The Corner Grocer browser demo runs the full application in any modern browser using HTML, CSS, and JavaScript — no Python, no database, no install required."
+---
+
+The browser demo is a static HTML/JS recreation of the full Python application, built so anyone can interact with Corner Grocer through GitHub Pages without installing Python or a database. Every menu operation from the command-line version — frequency lookup, sorting, searching, histogram display, and file export — is available directly in the browser, powered by JavaScript logic that mirrors the original Python implementation. The demo loads with a pre-populated sample dataset so visitors can explore the features immediately.
+
+## What the demo includes
+
+<CardGroup cols={2}>
+  <Card title="Item frequency lookup" icon="magnifying-glass">
+    Type any grocery item name to retrieve how many times it appears in the dataset.
+  </Card>
+  <Card title="Print all frequencies" icon="table-list">
+    Display the complete list of every tracked item alongside its purchase count.
+  </Card>
+  <Card title="Text histogram display" icon="chart-bar">
+    Render an asterisk-based histogram — one `*` per occurrence — for every item in the dataset.
+  </Card>
+  <Card title="Alphabetical sort (A–Z)" icon="arrow-down-a-z">
+    Re-order the full item list in ascending alphabetical order.
+  </Card>
+  <Card title="Frequency sort (high → low)" icon="arrow-down-wide-short">
+    Re-order items from most purchased to least purchased.
+  </Card>
+  <Card title="Item search" icon="eye">
+    Search for an exact item name or a partial match across all stored items.
+  </Card>
+  <Card title="Add new items" icon="circle-plus">
+    Enter one item per line to add new purchase records to the in-browser dataset.
+  </Card>
+  <Card title="Save/download frequency list" icon="floppy-disk">
+    Trigger a browser download of `frequency_list.txt` containing all item counts.
+  </Card>
+  <Card title="Save/download histogram" icon="download">
+    Trigger a browser download of `frequency_histogram.txt` containing the asterisk histogram.
+  </Card>
+</CardGroup>
+
+## How it works
+
+The demo recreates the Python/SQLite application logic entirely in JavaScript. The same normalization rules, sorting algorithms, search behavior, and histogram formatting that exist in the Python source are re-implemented client-side so the output matches what the command-line application produces.
+
+Browser `localStorage` is used to simulate the persistence that SQLite provides in the Python version. When a visitor adds new items or modifies the dataset, those changes are written to `localStorage` under the key `cornerGrocerItems`. If the visitor returns to the demo in the same browser on the same origin, the previously saved items are automatically restored — the demo picks up where they left off. First-time visitors (or visitors whose `localStorage` is empty) are shown a built-in default dataset of real grocery items so every feature can be exercised right away.
+
+## Limitations vs. the Python version
+
+<AccordionGroup>
+  <Accordion title="Browser localStorage vs. SQLite">
+    The Python application stores all item data in a SQLite database via a dedicated `db_handler.py` module, which supports parameterized queries, persistent storage across machines, and server-side validation. The browser demo stores data in `localStorage`, which is scoped to a single browser profile on a single device. Data is not shared between browsers, devices, or private/incognito sessions.
+  </Accordion>
+  <Accordion title="No file-system access — downloads use the browser download API">
+    The Python version writes files directly to the file system using Python's file I/O and context managers, and confirms the full save path in the terminal. The browser demo cannot write to the file system directly. Instead, it constructs a `Blob` object and triggers a download through the browser's download API. The result is functionally equivalent for end users, but the mechanism is entirely different.
+  </Accordion>
+  <Accordion title="Client-side only — cannot process large external files server-side">
+    The Python application can read arbitrarily large input files from disk and process them through SQLite. The browser demo operates entirely client-side with no server and no file-parsing pipeline, so it cannot ingest external `.dat` or `.txt` purchase-history files the way the Python version can. Items must be entered manually through the Add New Items form.
+  </Accordion>
+</AccordionGroup>
+
+<Note>
+  The browser demo is intended to showcase the project interactively for visitors who do not have Python installed — it is not intended to replace the Python source code as the authoritative implementation. The original C++ application, the enhanced Python rewrite, and the SQLite integration remain the complete, canonical versions of Corner Grocer.
+</Note>
